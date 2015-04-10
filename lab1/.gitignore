@@ -1,0 +1,5 @@
+syntax.tab.*
+lex.yy.c
+scanner
+parser
+scan/*
