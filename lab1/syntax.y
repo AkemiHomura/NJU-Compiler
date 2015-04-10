@@ -1,118 +1,369 @@
 %{
+    #include <stdio.h>
+    #include "tree.h"
+    tnode *root = NULL;
+    #include "lex.yy.c"
 %}
+%union {
+    struct tnode* type_tnode_ptr;
+}
 
-%token INT
-%token FLOAT
-%token ID
-%token SEMI
-%token COMMA
-%token ASSIGNOP
-%token RELOP
-%token PLUS MINUS
-%token STAR
-%token DIV
-%token AND OR
-%token NOT
-%token DOT
-%token TYPE
-%token LP
-%token RP
-%token LB
-%token RB
-%token LC
-%token RC
-%token STRUCT
-%token RETURN
-%token IF
-%token ELSE
-%token WHILE
+%token <type_tnode_ptr> INT TYPE
+%token <type_tnode_ptr> FLOAT
+%token <type_tnode_ptr> ID
+%token <type_tnode_ptr> SEMI COMMA ASSIGNOP RELOP PLUS MINUS STAR DIV AND OR NOT DOT LP RP LB RB LC RC STRUCT RETURN IF ELSE WHILE
+
+%right ASSIGNOP
+%left OR
+%left AND 
+%left RELOP
+%left PLUS MINUS
+%left STAR DIV 
+%right NEG NOT 
+%left LP RP LB RB DOT
+
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
+
+
+/* non-terminals */
+%type <type_tnode_ptr> Program ExtDefList ExtDef Specifier ExtDecList FunDec CompSt VarDec StructSpecifier OptTag Tag VarList ParamDec StmtList Stmt Exp DefList DecList Dec Def Args
+
 %%
-Program : ExtDefList
+Program : ExtDefList {
+            $$ = root = new_node("Program", @$.first_line);
+            link_node($$, $1);
+        }
         ;
-ExtDefList : ExtDef ExtDefList
-           | 
+ExtDefList : ExtDef ExtDefList {
+            $$ = new_node("ExtDefList", @$.first_line);
+            link_node($$, $1);
+            link_node($$, $2);
+           }
+           | {
+            $$ = NULL;
+           }
            ;
-ExtDef : Specifier ExtDecList SEMI
-       | Specifier SEMI
-       | Specifier FunDec CompSt
+ExtDef : Specifier ExtDecList SEMI {
+        $$ = new_node("ExtDef", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+       }
+       | Specifier SEMI {
+         $$ = new_node("ExtDef", @$.first_line);
+         link_node($$, $1);
+         link_node($$, $2);
+       }
+       | Specifier FunDec CompSt {
+        $$ = new_node("ExtDef", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+       }
        ;
-ExtDecList : VarDec
-           | VarDec COMMA ExtDecList
+ExtDecList : VarDec {
+            $$ = new_node("ExtDecList", @$.first_line);
+            link_node($$, $1);
+           }
+           | VarDec COMMA ExtDecList {
+            $$ = new_node("ExtDecList", @$.first_line);
+            link_node($$, $1);
+            link_node($$, $2);
+            link_node($$, $3);
+           }
            ;
 
-Specifier : TYPE
-          | StructSpecifier
+Specifier : TYPE {
+            $$ = new_node("Specifier", @$.first_line);
+            link_node($$, $1);
+          }
+          | StructSpecifier {
+            $$ = new_node("Specifier", @$.first_line);
+            link_node($$, $1);
+          }
           ;
-StructSpecifier : STRUCT OptTag LC DefList RC
-                | STRUCT Tag
+StructSpecifier : STRUCT OptTag LC DefList RC {
+                $$ = new_node("StructSpecifier", @$.first_line);
+                link_node($$, $1);
+                link_node($$, $2);
+                link_node($$, $3);
+                link_node($$, $4);
+                link_node($$, $5);
+                }
+                | STRUCT Tag {
+                $$ = new_node("StructSpecifier", @$.first_line);
+                link_node($$, $1);
+                link_node($$, $2);
+                }
                 ;
-OptTag : ID
-       |
+OptTag : ID {
+        $$ = new_node("OptTag", @$.first_line);
+        link_node($$, $1);
+       }
+       | {
+        $$ = NULL;
+       }
        ;
-Tag : ID
+Tag : ID {
+        $$ = new_node("Tag", @$.first_line);
+        link_node($$, $1);
+    }
     ;
 
-VarDec : ID
-       | VarDec LB INT RB
+VarDec : ID {
+        $$ = new_node("VarDec", @$.first_line);
+        link_node($$, $1);
+       }
+       | VarDec LB INT RB {
+        $$ = new_node("VarDec", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+       }
        ;
-FunDec : ID LP VarList RP
-       | ID LP RP
+FunDec : ID LP VarList RP {
+        $$ = new_node("FunDec", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+       }
+       | ID LP RP {
+        $$ = new_node("FunDec", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+       }
        ;
-VarList : ParamDec COMMA VarList
-        | ParamDec
+VarList : ParamDec COMMA VarList {
+        $$ = new_node("VarList", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        }
+        | ParamDec {
+        $$ = new_node("VarList", @$.first_line);
+        link_node($$, $1);
+        }
         ;
-ParamDec : Specifier VarDec
+ParamDec : Specifier VarDec {
+         $$ = new_node("ParamDec", @$.first_line);
+         link_node($$, $1);
+         link_node($$, $2);
+         }
          ;
 
-CompSt : LC DefList StmtList RC
+CompSt : LC DefList StmtList RC {
+        $$ = new_node("CompSt", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+       }
        ;
-StmtList : Stmt StmtList
-         |
+StmtList : Stmt StmtList {
+        $$ = new_node("StmtList", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+         }
+         | {
+        $$ = NULL;
+         }
          ;
-Stmt : Exp SEMI
-     | CompSt
-     | RETURN Exp SEMI
-     | IF LP Exp RP Stmt
-     | IF LP Exp RP Stmt ELSE Stmt
-     | WHILE LP Exp RP Stmt
+Stmt : Exp SEMI {
+        $$ = new_node("Stmt", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+     }
+     | CompSt {
+        $$ = new_node("Stmt", @$.first_line);
+        link_node($$, $1);
+     }
+     | RETURN Exp SEMI {
+        $$ = new_node("Stmt", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+     }
+     | IF LP Exp RP Stmt    %prec LOWER_THAN_ELSE {
+        $$ = new_node("Stmt", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+        link_node($$, $5);
+     }
+     | IF LP Exp RP Stmt ELSE Stmt {
+        $$ = new_node("Stmt", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+        link_node($$, $5);
+        link_node($$, $6);
+        link_node($$, $7);
+     }
+     | WHILE LP Exp RP Stmt {
+        $$ = new_node("Stmt", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+        link_node($$, $5);
+     }
      ;
 
-DefList : Def DefList
-        | 
+DefList : Def DefList {
+            $$ = new_node("DefList", @$.first_line);
+            link_node($$, $1);
+            link_node($$, $2);
+        }
+        | {
+            $$ = NULL;
+        }
         ;
-Def : Specifier DecList SEMI
+Def : Specifier DecList SEMI {
+        $$ = new_node("Def", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
     ;
-DecList : Dec
-        | Dec COMMA DecList
+DecList : Dec {
+            $$ = new_node("DecList", @$.first_line);
+            link_node($$, $1);
+        }
+        | Dec COMMA DecList {
+            $$ = new_node("DecList", @$.first_line);
+            link_node($$, $1);
+            link_node($$, $2);
+            link_node($$, $3);
+        }
         ;
-Dec : VarDec
-    | VarDec ASSIGNOP Exp
+Dec : VarDec {
+        $$ = new_node("Dec", @$.first_line);
+        link_node($$, $1);
+    }
+    | VarDec ASSIGNOP Exp {
+        $$ = new_node("Dec", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
     ;
 
-Exp : Exp ASSIGNOP Exp
-    | Exp AND Exp
-    | Exp OR Exp
-    | Exp RELOP Exp
-    | Exp PLUS Exp
-    | Exp MINUS Exp
-    | Exp STAR Exp
-    | LP Exp RP
-    | MINUS Exp
-    | NOT Exp
-    | ID LP Args RP
-    | ID LP RP
-    | Exp LB Exp RB
-    | Exp DOT ID
-    | ID 
-    | INT 
-    | FLOAT
+Exp : Exp ASSIGNOP Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | Exp AND Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | Exp OR Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | Exp RELOP Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | Exp PLUS Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | Exp MINUS Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | Exp STAR Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | LP Exp RP {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | MINUS Exp %prec NEG {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+    }
+    | NOT Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+    }
+    | ID LP Args RP {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+    }
+    | ID LP RP {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | Exp LB Exp RB {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+        link_node($$, $4);
+    }
+    | Exp DOT ID {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
+    | ID {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+    }
+    | INT {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+    }
+    | FLOAT {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+    }
     ;
-Args : Exp COMMA Args
-     | Exp
+Args : Exp COMMA Args {
+        $$ = new_node("Args", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+     }
+     | Exp {
+        $$ = new_node("Args", @$.first_line);
+        link_node($$, $1);
+     }
      ;
 %%
-#include "lex.yy.c"
-yyerror() {
-    fprintf(stderr, "error%d\n", yylineno);
+yyerror(char *msg) {
+    fprintf(stderr, "Error type B at Line %d: \n", yylineno, msg);
 }
 

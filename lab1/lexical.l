@@ -1,5 +1,17 @@
 %{
     #include "syntax.tab.h"
+    #include <stdlib.h>
+    #include <string.h>
+    #include "tree.h"
+
+    int yycolumn = 1;
+    #define YY_USER_ACTION { \
+        yylloc.first_line = yylloc.last_line = yylineno;\
+        yylloc.first_column = yycolumn; \
+        yylloc.last_column = yycolumn + yyleng - 1; \
+        yycolumn += yyleng; \
+    }
+
 %}
 %option yylineno
 
@@ -35,6 +47,7 @@ ID      [_a-zA-Z][_a-zA-Z0-9]*
 WHITE   [\n\f\v\t\r ]+
 NWHITE  [^\n\f\v\t\r ]
 %%
+\n  {yycolumn ++;}
 "//"    {
     char c = input();
     while(c != '\n') c = input();
@@ -49,33 +62,120 @@ NWHITE  [^\n\f\v\t\r ]
     }
 }
 
-{SEMI}  {return SEMI; printf("SEMI\n");}
-{COMMA} {return COMMA; printf("COMMA\n");}
-{ASSIGNOP}  {return ASSIGNOP; printf("ASSIGNOP\n");}
-{RELOP} {return RELOP; printf("RELOP\n");}
-{PLUS}  {return PLUS; printf("PLUS\n");}
-{MINUS} {return MINUS; printf("MINUS\n");}
-{STAR}  {return STAR; printf("STAR\n");}
-{DIV}   {return DIV; printf("DIV\n");}
-{AND}   {return AND; printf("AND\n");}
-{OR}    {return OR; printf("OR\n");}
-{DOT}   {return DOT; printf("DOT\n");}
-{NOT}   {return NOT; printf("NOT\n");}
-{LP}    {return LP; printf("LP\n");}
-{RP}    {return RP; printf("RP\n");}
-{LB}    {return LB; printf("LB\n");}
-{RB}    {return RB; printf("RB\n");}
-{LC}    {return LC; printf("LC\n");}
-{RC}    {return RC; printf("RC\n");}
-{STRUCT}    {return STRUCT; printf("STRUCT\n");}
-{RETURN}    {return RETURN; printf("RETURN\n");}
-{IF}    {return IF; printf("IF\n");}
-{ELSE}  {return ELSE; printf("ELSE\n");}
-{WHILE} {return WHILE; printf("WHILE\n");}
-{TYPE}  {return TYPE; printf("TYPE: %s\n", yytext);}
-{FLOAT}  {return FLOAT; printf("FLOAT: %s\n", yytext);}
-{INT}   {return INT; printf("INT: %s\n", yytext);}
-{ID}    {return ID; printf("ID: %s\n", yytext);}
+{SEMI}  {
+    tnode *p = new_node("SEMI", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return SEMI; printf("SEMI\n");}
+{COMMA} {
+    tnode *p = new_node("COMMA", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return COMMA; printf("COMMA\n");}
+{ASSIGNOP}  {
+    tnode *p = new_node("ASSIGNOP", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return ASSIGNOP; printf("ASSIGNOP\n");}
+{RELOP} {
+    tnode *p = new_node("RELOP", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return RELOP; printf("RELOP\n");}
+{PLUS}  {
+    tnode *p = new_node("PLUS", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return PLUS; printf("PLUS\n");}
+{MINUS} {
+    tnode *p = new_node("MINUS", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return MINUS; printf("MINUS\n");}
+{STAR}  {
+    tnode *p = new_node("STAR", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return STAR; printf("STAR\n");}
+{DIV}   {
+    tnode *p = new_node("DIV", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return DIV; printf("DIV\n");}
+{AND}   {
+    tnode *p = new_node("AND", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return AND; printf("AND\n");}
+{OR}    {
+    tnode *p = new_node("OR", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return OR; printf("OR\n");}
+{DOT}   {
+    tnode *p = new_node("DOT", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return DOT; printf("DOT\n");}
+{NOT}   {
+    tnode *p = new_node("NOT", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return NOT; printf("NOT\n");}
+{LP}    {
+    tnode *p = new_node("LP", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return LP; printf("LP\n");}
+{RP}    {
+    tnode *p = new_node("RP", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return RP; printf("RP\n");}
+{LB}    {
+    tnode *p = new_node("LB", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return LB; printf("LB\n");}
+{RB}    {
+    tnode *p = new_node("RB", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return RB; printf("RB\n");}
+{LC}    {
+    tnode *p = new_node("LC", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return LC; printf("LC\n");}
+{RC}    {
+    tnode *p = new_node("RC", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return RC; printf("RC\n");}
+{STRUCT}    {
+    tnode *p = new_node("STRUCT", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return STRUCT; printf("STRUCT\n");}
+{RETURN}    {
+    tnode *p = new_node("RETURN", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return RETURN; printf("RETURN\n");}
+{IF}    {
+    tnode *p = new_node("IF", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return IF; printf("IF\n");}
+{ELSE}  {
+    tnode *p = new_node("ELSE", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return ELSE; printf("ELSE\n");}
+{WHILE} {
+    tnode *p = new_node("WHILE", TERMINALS_LINE);
+    yylval.type_tnode_ptr = p;
+    return WHILE; printf("WHILE\n");}
+{TYPE}  {
+    tnode *p = new_node("TYPE", -TYPE);
+    if(strcmp(yytext, "int") == 0) p->intval = 0;
+    else p->intval = 1;
+    yylval.type_tnode_ptr = p;
+    return TYPE; printf("TYPE: %s\n", yytext);}
+{FLOAT} {
+    tnode *p = new_node("FLOAT", -FLOAT);
+    p->floval = atof(yytext);
+    yylval.type_tnode_ptr = p;
+    return FLOAT; printf("FLOAT: %s\n", yytext);}
+{INT}   {
+    tnode *p = new_node("INT", -INT);
+    p->intval = atoi(yytext);
+    yylval.type_tnode_ptr = p;
+    return INT; printf("INT: %s\n", yytext);}
+{ID}    {
+    tnode *p = new_node("ID", -ID);
+    p->strval = malloc(sizeof(char) * (yyleng + 1));
+    strcpy(p->strval, yytext);
+    yylval.type_tnode_ptr = p;
+    return ID; printf("ID: %s\n", yytext);}
 
 {WHITE} {}
 {NWHITE} {printf("Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext);}
