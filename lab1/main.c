@@ -3,6 +3,7 @@
 #include "tree.c"
 
 extern tnode* root;
+extern int err;
 
 void print_tree(tnode *);
 
@@ -16,7 +17,7 @@ int main(int argc, char** argv) {
 
     yyrestart(f);
     yyparse();
-    print_tree(root);
+    if(!err) print_tree(root);
     return 0;
 }
 
@@ -53,6 +54,7 @@ void print_node(int pre, tnode *r) {
 }
 
 void print_tree(tnode *r) {
+    if(r == NULL) return;
     static int pre = 0;
     int i = 0;
     print_node(pre, r);

@@ -4,6 +4,7 @@
     #include <string.h>
     #include "tree.h"
 
+    extern int err;
     int yycolumn = 1;
     #define YY_USER_ACTION { \
         yylloc.first_line = yylloc.last_line = yylineno;\
@@ -11,6 +12,8 @@
         yylloc.last_column = yycolumn + yyleng - 1; \
         yycolumn += yyleng; \
     }
+
+    void comment();
 
 %}
 %option yylineno
@@ -48,18 +51,10 @@ WHITE   [\n\f\v\t\r ]+
 NWHITE  [^\n\f\v\t\r ]
 %%
 \n  {yycolumn ++;}
-"//"    {
-    char c = input();
-    while(c != '\n') c = input();
-}
+"//"[^\n]*
+
 "/*"    {
-    char c = input();
-    while(1) {
-        if(c == '*') {
-            c = input();
-            if(c == '/') break;
-        }
-    }
+    comment();
 }
 
 {SEMI}  {
@@ -167,7 +162,10 @@ NWHITE  [^\n\f\v\t\r ]
     return FLOAT; printf("FLOAT: %s\n", yytext);}
 {INT}   {
     tnode *p = new_node("INT", -INT);
-    p->intval = atoi(yytext);
+    if(yytext[0] == '0') {
+        if(yytext[1] == 'x' || yytext[1] == 'X') sscanf(yytext, "%x", &p->intval);
+        else sscanf(yytext, "%o", &p->intval);
+    } else sscanf(yytext, "%d", &p->intval);
     yylval.type_tnode_ptr = p;
     return INT; printf("INT: %s\n", yytext);}
 {ID}    {
@@ -178,5 +176,15 @@ NWHITE  [^\n\f\v\t\r ]
     return ID; printf("ID: %s\n", yytext);}
 
 {WHITE} {}
-{NWHITE} {printf("Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext);}
+{NWHITE} {fprintf(stderr, "Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext); err = 1;}
 %%
+void comment(void) {
+    char c, prev = 0;
+
+    while((c = input()) != 0) {
+        if(c == '/' && prev == '*')
+        return;
+        prev = c;
+    }
+    error("unterminated comment");
+}

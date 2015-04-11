@@ -2,7 +2,14 @@
     #include <stdio.h>
     #include "tree.h"
     tnode *root = NULL;
+    int err = 0;
     #include "lex.yy.c"
+
+    #define YYERROR_VERBOSE 1
+    #define yyerror(msg) _yyerror(msg)
+    void _yyerror(const char *msg) {
+    printf("Error type B at Line %d: %s\n", yylineno, msg);
+}
 %}
 %union {
     struct tnode* type_tnode_ptr;
@@ -296,6 +303,12 @@ Exp : Exp ASSIGNOP Exp {
         link_node($$, $2);
         link_node($$, $3);
     }
+    | Exp DIV Exp {
+        $$ = new_node("Exp", @$.first_line);
+        link_node($$, $1);
+        link_node($$, $2);
+        link_node($$, $3);
+    }
     | LP Exp RP {
         $$ = new_node("Exp", @$.first_line);
         link_node($$, $1);
@@ -362,8 +375,29 @@ Args : Exp COMMA Args {
         link_node($$, $1);
      }
      ;
+
+                ;
+
+Def : error SEMI {
+                err = 1;
+    }
+    ;
+
+Stmt : error SEMI {
+                err = 1;
+     }
+     ;
+
+CompSt : error RC {
+                err = 1;
+       }
+       ;
+
+Exp : error Exp {
+                err = 1;
+    }
+    ;
+
 %%
-yyerror(char *msg) {
-    fprintf(stderr, "Error type B at Line %d: \n", yylineno, msg);
-}
+
 
