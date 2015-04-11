@@ -15,4 +15,4 @@ syntax-debug: syntax.y
 	bison -d -v syntax.y
 
 clean:
-	rm $(RES) 
+	rm $(RES) $(shell find -name "syntax.output")

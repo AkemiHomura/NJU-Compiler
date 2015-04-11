@@ -376,7 +376,6 @@ Args : Exp COMMA Args {
      }
      ;
 
-                ;
 
 Def : error SEMI {
                 err = 1;
