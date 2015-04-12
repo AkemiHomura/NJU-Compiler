@@ -16,6 +16,9 @@ int main(int argc, char** argv) {
     }
 
     yyrestart(f);
+#if YYDEBUG
+    yydebug = 1;
+#endif
     yyparse();
     if(!err) print_tree(root);
     return 0;

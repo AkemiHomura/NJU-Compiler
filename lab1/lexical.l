@@ -47,8 +47,8 @@ INT     (0x|0X)[0-9a-fA-F]{1,8}|0[0-3]?[0-7]{1,10}|4[0-2][0-9]{8}|[1-3][0-9]{9}|
 FLOAT   [0-9]+\.[0-9]+|[0-9]*\.[0-9]+[Ee][+-][0-9]+
 ID      [_a-zA-Z][_a-zA-Z0-9]*
 
-WHITE   [\n\f\v\t\r ]+
-NWHITE  [^\n\f\v\t\r ]
+BLANK   [\n\f\v\t\r ]+
+NBLANK  [^\n\f\v\t\r ]
 %%
 \n  {yycolumn ++;}
 "//"[^\n]*
@@ -175,8 +175,8 @@ NWHITE  [^\n\f\v\t\r ]
     yylval.type_tnode_ptr = p;
     return ID; printf("ID: %s\n", yytext);}
 
-{WHITE} {}
-{NWHITE} {fprintf(stderr, "Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext); err = 1;}
+{BLANK} {}
+{NBLANK} {fprintf(stderr, "Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext); err = 1;}
 %%
 void comment(void) {
     char c, prev = 0;
