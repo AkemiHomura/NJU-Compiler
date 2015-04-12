@@ -15,6 +15,11 @@
 
     void comment();
 
+    #define extern_tnode(str) {\
+        tnode *p = new_node(#str, TERMINALS_LINE); \
+        yylval.type_tnode_ptr = p; \
+    }
+
 %}
 %option yylineno
 
@@ -58,96 +63,73 @@ NBLANK  [^\n\f\v\t\r ]
 }
 
 {SEMI}  {
-    tnode *p = new_node("SEMI", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(SEMI)
     return SEMI; printf("SEMI\n");}
 {COMMA} {
-    tnode *p = new_node("COMMA", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(COMMA)
     return COMMA; printf("COMMA\n");}
 {ASSIGNOP}  {
-    tnode *p = new_node("ASSIGNOP", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(ASSIGNOP)
     return ASSIGNOP; printf("ASSIGNOP\n");}
 {RELOP} {
-    tnode *p = new_node("RELOP", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(RELOP)
     return RELOP; printf("RELOP\n");}
 {PLUS}  {
-    tnode *p = new_node("PLUS", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(PLUS)
     return PLUS; printf("PLUS\n");}
 {MINUS} {
-    tnode *p = new_node("MINUS", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(MINUS)
     return MINUS; printf("MINUS\n");}
 {STAR}  {
-    tnode *p = new_node("STAR", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(STAR)
     return STAR; printf("STAR\n");}
 {DIV}   {
-    tnode *p = new_node("DIV", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(DIV)
     return DIV; printf("DIV\n");}
 {AND}   {
-    tnode *p = new_node("AND", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(AND)
     return AND; printf("AND\n");}
 {OR}    {
-    tnode *p = new_node("OR", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(OR)
     return OR; printf("OR\n");}
 {DOT}   {
-    tnode *p = new_node("DOT", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(DOT)
     return DOT; printf("DOT\n");}
 {NOT}   {
-    tnode *p = new_node("NOT", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(NOT)
     return NOT; printf("NOT\n");}
 {LP}    {
-    tnode *p = new_node("LP", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(LP)
     return LP; printf("LP\n");}
 {RP}    {
-    tnode *p = new_node("RP", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(RP)
     return RP; printf("RP\n");}
 {LB}    {
-    tnode *p = new_node("LB", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(LB)
     return LB; printf("LB\n");}
 {RB}    {
-    tnode *p = new_node("RB", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(RB)
     return RB; printf("RB\n");}
 {LC}    {
-    tnode *p = new_node("LC", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(LC)
     return LC; printf("LC\n");}
 {RC}    {
-    tnode *p = new_node("RC", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(RC)
     return RC; printf("RC\n");}
 {STRUCT}    {
-    tnode *p = new_node("STRUCT", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(STRUCT)
     return STRUCT; printf("STRUCT\n");}
 {RETURN}    {
-    tnode *p = new_node("RETURN", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(RETURN)
     return RETURN; printf("RETURN\n");}
 {IF}    {
-    tnode *p = new_node("IF", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(IF)
     return IF; printf("IF\n");}
 {ELSE}  {
-    tnode *p = new_node("ELSE", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(ELSE)
     return ELSE; printf("ELSE\n");}
 {WHILE} {
-    tnode *p = new_node("WHILE", TERMINALS_LINE);
-    yylval.type_tnode_ptr = p;
+    extern_tnode(WHILE)
     return WHILE; printf("WHILE\n");}
 {TYPE}  {
     tnode *p = new_node("TYPE", -TYPE);
@@ -176,7 +158,7 @@ NBLANK  [^\n\f\v\t\r ]
     return ID; printf("ID: %s\n", yytext);}
 
 {BLANK} {}
-{NBLANK} {fprintf(stderr, "Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext); err = 1;}
+{NBLANK} {printf("Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext); err = 1;}
 %%
 void comment(void) {
     char c, prev = 0;

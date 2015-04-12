@@ -1,0 +1,396 @@
+test/a1.cmm
+Error type B at Line 1: syntax error, unexpected INT, expecting ID or SEMI
+
+
+test/a2.cmm
+Error type B at Line 1: syntax error, unexpected RP, expecting SEMI
+
+
+test/a3.cmm
+Error type B at Line 7: syntax error, unexpected COMMA
+
+
+test/a4.cmm
+Error type B at Line 4: syntax error, unexpected FLOAT, expecting INT
+Error type B at Line 8: syntax error, unexpected PLUS
+
+
+test/a5.cmm
+Program (1)
+  ExtDefList (1)
+    ExtDef (1)
+      Specifier (1)
+        TYPE: int
+      FunDec (1)
+        LP
+        VarList (1)
+          ParamDec (1)
+            Specifier (1)
+              TYPE: int
+            VarDec (1)
+              ID: n
+          COMMA
+          VarList (1)
+            ParamDec (1)
+              Specifier (1)
+                TYPE: int
+              VarDec (1)
+                ID: max
+        RP
+      CompSt (2)
+        LC
+        DefList (3)
+          Def (3)
+            Specifier (3)
+              TYPE: int
+            DecList (3)
+              Dec (3)
+                VarDec (3)
+                  ID: i
+            SEMI
+          DefList (4)
+            Def (4)
+              Specifier (4)
+                TYPE: int
+              DecList (4)
+                Dec (4)
+                  VarDec (4)
+                    VarDec (4)
+                      ID: queen
+                    LB
+                    INT: 10
+                    RB
+              SEMI
+        StmtList (5)
+          Stmt (5)
+            WHILE
+            LP
+            Exp (5)
+              Exp (5)
+                ID: i
+              RELOP
+              Exp (5)
+                ID: max
+            RP
+            Stmt (6)
+              CompSt (6)
+                LC
+                StmtList (7)
+                  Stmt (7)
+                    Exp (7)
+                      Exp (7)
+                        Exp (7)
+                          ID: queen
+                        LB
+                        Exp (7)
+                          ID: n
+                        RB
+                      ASSIGNOP
+                      Exp (7)
+                        ID: i
+                    SEMI
+                  StmtList (8)
+                    Stmt (8)
+                      IF
+                      LP
+                      Exp (8)
+                        NOT
+                        Exp (8)
+                          ID: check
+                          LP
+                          Args (8)
+                            Exp (8)
+                              ID: n
+                          RP
+                      RP
+                      Stmt (9)
+                        CompSt (9)
+                          LC
+                          StmtList (10)
+                            Stmt (10)
+                              IF
+                              LP
+                              Exp (10)
+                                Exp (10)
+                                  ID: n
+                                RELOP
+                                Exp (10)
+                                  Exp (10)
+                                    ID: max
+                                  MINUS
+                                  Exp (10)
+                                    INT: 1
+                              RP
+                              Stmt (11)
+                                CompSt (11)
+                                  LC
+                                  StmtList (12)
+                                    Stmt (12)
+                                      Exp (12)
+                                        ID: show
+                                        LP
+                                        RP
+                                      SEMI
+                                  RC
+                              ELSE
+                              Stmt (15)
+                                CompSt (15)
+                                  LC
+                                  StmtList (16)
+                                    Stmt (16)
+                                      Exp (16)
+                                        ID: put
+                                        LP
+                                        Args (16)
+                                          Exp (16)
+                                            Exp (16)
+                                              ID: n
+                                            PLUS
+                                            Exp (16)
+                                              INT: 1
+                                        RP
+                                      SEMI
+                                  RC
+                          RC
+                    StmtList (19)
+                      Stmt (19)
+                        Exp (19)
+                          Exp (19)
+                            ID: i
+                          ASSIGNOP
+                          Exp (19)
+                            Exp (19)
+                              ID: i
+                            PLUS
+                            Exp (19)
+                              INT: 1
+                        SEMI
+                RC
+          StmtList (21)
+            Stmt (21)
+              RETURN
+              Exp (21)
+                ID: i
+              SEMI
+        RC
+
+
+test/a6.cmm
+Error type B at Line 6: syntax error, unexpected TYPE, expecting ID or SEMI
+
+
+test/test1.cmm
+Error type A at Line 4: Mysterious characters "~"
+
+
+test/test10.cmm
+Error type B at Line 6: syntax error, unexpected ID
+
+
+test/test2.cmm
+Error type B at Line 5: syntax error, unexpected COMMA
+Error type B at Line 6: syntax error, unexpected ELSE
+
+
+test/test3.cmm
+Program (1)
+  ExtDefList (1)
+    ExtDef (1)
+      Specifier (1)
+        TYPE: int
+      FunDec (1)
+        ID: inc
+        LP
+        RP
+      CompSt (2)
+        LC
+        DefList (3)
+          Def (3)
+            Specifier (3)
+              TYPE: int
+            DecList (3)
+              Dec (3)
+                VarDec (3)
+                  ID: i
+            SEMI
+        StmtList (4)
+          Stmt (4)
+            Exp (4)
+              Exp (4)
+                ID: i
+              ASSIGNOP
+              Exp (4)
+                Exp (4)
+                  ID: i
+                PLUS
+                Exp (4)
+                  INT: 1
+            SEMI
+        RC
+
+
+test/test4.cmm
+Program (1)
+  ExtDefList (1)
+    ExtDef (1)
+      Specifier (1)
+        StructSpecifier (1)
+          STRUCT
+          OptTag (1)
+            ID: Compelx
+          LC
+          DefList (3)
+            Def (3)
+              Specifier (3)
+                TYPE: float
+              DecList (3)
+                Dec (3)
+                  VarDec (3)
+                    ID: real
+                COMMA
+                DecList (3)
+                  Dec (3)
+                    VarDec (3)
+                      ID: image
+              SEMI
+          RC
+      SEMI
+    ExtDefList (5)
+      ExtDef (5)
+        Specifier (5)
+          TYPE: int
+        FunDec (5)
+          ID: main
+          LP
+          RP
+        CompSt (6)
+          LC
+          DefList (7)
+            Def (7)
+              Specifier (7)
+                StructSpecifier (7)
+                  STRUCT
+                  Tag (7)
+                    ID: Complex
+              DecList (7)
+                Dec (7)
+                  VarDec (7)
+                    ID: x
+              SEMI
+          StmtList (8)
+            Stmt (8)
+              Exp (8)
+                Exp (8)
+                  Exp (8)
+                    ID: y
+                  DOT
+                  ID: image
+                ASSIGNOP
+                Exp (8)
+                  FLOAT: 3.500000
+              SEMI
+          RC
+
+
+test/test5.cmm
+Program (1)
+  ExtDefList (1)
+    ExtDef (1)
+      Specifier (1)
+        TYPE: int
+      FunDec (1)
+        ID: main
+        LP
+        RP
+      CompSt (2)
+        LC
+        DefList (3)
+          Def (3)
+            Specifier (3)
+              TYPE: int
+            DecList (3)
+              Dec (3)
+                VarDec (3)
+                  ID: i
+                ASSIGNOP
+                Exp (3)
+                  INT: 83
+            SEMI
+          DefList (4)
+            Def (4)
+              Specifier (4)
+                TYPE: int
+              DecList (4)
+                Dec (4)
+                  VarDec (4)
+                    ID: j
+                  ASSIGNOP
+                  Exp (4)
+                    INT: 63
+              SEMI
+        RC
+
+
+test/test6.cmm
+Error type B at Line 3: syntax error, unexpected INT, expecting SEMI
+Error type B at Line 4: syntax error, unexpected ID, expecting SEMI
+
+
+test/test7.cmm
+Program (1)
+  ExtDefList (1)
+    ExtDef (1)
+      Specifier (1)
+        TYPE: int
+      FunDec (1)
+        ID: main
+        LP
+        RP
+      CompSt (2)
+        LC
+        DefList (3)
+          Def (3)
+            Specifier (3)
+              TYPE: float
+            DecList (3)
+              Dec (3)
+                VarDec (3)
+                  ID: i
+                ASSIGNOP
+                Exp (3)
+                  FLOAT: 0.000105
+            SEMI
+        RC
+
+
+test/test8.cmm
+Error type B at Line 3: syntax error, unexpected ID, expecting SEMI
+
+
+test/test9.cmm
+Program (1)
+  ExtDefList (1)
+    ExtDef (1)
+      Specifier (1)
+        TYPE: int
+      FunDec (1)
+        ID: main
+        LP
+        RP
+      CompSt (2)
+        LC
+        DefList (7)
+          Def (7)
+            Specifier (7)
+              TYPE: int
+            DecList (7)
+              Dec (7)
+                VarDec (7)
+                  ID: i
+                ASSIGNOP
+                Exp (7)
+                  INT: 1
+            SEMI
+        RC
+
+

@@ -1,6 +1,8 @@
 CC=gcc
 CFLAGS=-lfl -O2 -o
-RES=$(shell find -name "lex.yy.c" -o -name "parser" -o -name "syntax.tab.*")
+LEXC_AND_YACCC=$(shell find -name "lex.yy.c" -o -name "syntax.tab.*")
+YACC_DEBUG_OUT=$(shell find -name "syntax.output")
+RES=$(shell find -name "parser");
 
 parser: lex.yy.c syntax.tab.c main.c
 	$(CC) main.c syntax.tab.c -ly $(CFLAGS) parser
@@ -17,5 +19,18 @@ lex.yy.c: lexical.l syntax.tab.h
 syntax-debug: syntax.y
 	bison -d -v syntax.y
 
-clean:
-	rm $(RES) $(shell find -name "syntax.output")
+.PHONY: clean test clean-respreserved
+test:
+	rm test.out
+	touch test.out
+	for t in $(shell find test/*); \
+		do 	echo "$$t" >> test.out; \
+			./parser "$$t" >> test.out; \
+			echo "\n" >> test.out; \
+		done
+
+clean: clean-respreserved
+	rm $(RES) 
+
+clean-respreserved:
+	rm $(YACC_DEBUG_OUT) $(LEXC_AND_YACCC)

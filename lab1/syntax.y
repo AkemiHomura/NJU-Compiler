@@ -9,6 +9,11 @@
     #define yyerror(msg) _yyerror(msg)
     void _yyerror(const char *msg) {
     printf("Error type B at Line %d: %s\n", yylineno, msg);
+
+    #define link(n) {\
+        int i = n - 1; \
+        for(; i >= 0; i --) link_node((yyval.type_tnode_ptr), (yyvsp[-i].type_tnode_ptr)); \
+    }
 }
 %}
 %union {
@@ -44,8 +49,7 @@ Program : ExtDefList {
         ;
 ExtDefList : ExtDef ExtDefList {
             $$ = new_node("ExtDefList", @$.first_line);
-            link_node($$, $1);
-            link_node($$, $2);
+            link(2);
            }
            | {
             $$ = NULL;
@@ -53,20 +57,15 @@ ExtDefList : ExtDef ExtDefList {
            ;
 ExtDef : Specifier ExtDecList SEMI {
         $$ = new_node("ExtDef", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
        }
        | Specifier SEMI {
          $$ = new_node("ExtDef", @$.first_line);
-         link_node($$, $1);
-         link_node($$, $2);
+         link(2);
        }
        | Specifier FunDec CompSt {
         $$ = new_node("ExtDef", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
        }
        ;
 ExtDecList : VarDec {
@@ -75,9 +74,7 @@ ExtDecList : VarDec {
            }
            | VarDec COMMA ExtDecList {
             $$ = new_node("ExtDecList", @$.first_line);
-            link_node($$, $1);
-            link_node($$, $2);
-            link_node($$, $3);
+            link(3);
            }
            ;
 
@@ -92,11 +89,7 @@ Specifier : TYPE {
           ;
 StructSpecifier : STRUCT OptTag LC DefList RC {
                 $$ = new_node("StructSpecifier", @$.first_line);
-                link_node($$, $1);
-                link_node($$, $2);
-                link_node($$, $3);
-                link_node($$, $4);
-                link_node($$, $5);
+                link(5);
                 }
                 | STRUCT Tag {
                 $$ = new_node("StructSpecifier", @$.first_line);
@@ -124,31 +117,21 @@ VarDec : ID {
        }
        | VarDec LB INT RB {
         $$ = new_node("VarDec", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
+        link(4);
        }
        ;
 FunDec : ID LP VarList RP {
         $$ = new_node("FunDec", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
+        link(3);
        }
        | ID LP RP {
         $$ = new_node("FunDec", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
        }
        ;
 VarList : ParamDec COMMA VarList {
         $$ = new_node("VarList", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
         }
         | ParamDec {
         $$ = new_node("VarList", @$.first_line);
@@ -164,10 +147,7 @@ ParamDec : Specifier VarDec {
 
 CompSt : LC DefList StmtList RC {
         $$ = new_node("CompSt", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
+        link(4);
        }
        ;
 StmtList : Stmt StmtList {
@@ -190,35 +170,19 @@ Stmt : Exp SEMI {
      }
      | RETURN Exp SEMI {
         $$ = new_node("Stmt", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
      }
      | IF LP Exp RP Stmt    %prec LOWER_THAN_ELSE {
         $$ = new_node("Stmt", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
-        link_node($$, $5);
+        link(5);
      }
      | IF LP Exp RP Stmt ELSE Stmt {
         $$ = new_node("Stmt", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
-        link_node($$, $5);
-        link_node($$, $6);
-        link_node($$, $7);
+        link(7);
      }
      | WHILE LP Exp RP Stmt {
         $$ = new_node("Stmt", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
-        link_node($$, $5);
+        link(5);
      }
      ;
 
@@ -233,9 +197,7 @@ DefList : Def DefList {
         ;
 Def : Specifier DecList SEMI {
         $$ = new_node("Def", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     ;
 DecList : Dec {
@@ -244,9 +206,7 @@ DecList : Dec {
         }
         | Dec COMMA DecList {
             $$ = new_node("DecList", @$.first_line);
-            link_node($$, $1);
-            link_node($$, $2);
-            link_node($$, $3);
+            link(3);
         }
         ;
 Dec : VarDec {
@@ -255,65 +215,45 @@ Dec : VarDec {
     }
     | VarDec ASSIGNOP Exp {
         $$ = new_node("Dec", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     ;
 
 Exp : Exp ASSIGNOP Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp AND Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp OR Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp RELOP Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp PLUS Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp MINUS Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp STAR Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp DIV Exp {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | LP Exp RP {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | MINUS Exp %prec NEG {
         $$ = new_node("Exp", @$.first_line);
@@ -327,29 +267,19 @@ Exp : Exp ASSIGNOP Exp {
     }
     | ID LP Args RP {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
+        link(4);
     }
     | ID LP RP {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | Exp LB Exp RB {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
-        link_node($$, $4);
+        link(4);
     }
     | Exp DOT ID {
         $$ = new_node("Exp", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
     }
     | ID {
         $$ = new_node("Exp", @$.first_line);
@@ -366,9 +296,7 @@ Exp : Exp ASSIGNOP Exp {
     ;
 Args : Exp COMMA Args {
         $$ = new_node("Args", @$.first_line);
-        link_node($$, $1);
-        link_node($$, $2);
-        link_node($$, $3);
+        link(3);
      }
      | Exp {
         $$ = new_node("Args", @$.first_line);
