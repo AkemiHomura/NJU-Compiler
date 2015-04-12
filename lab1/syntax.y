@@ -376,6 +376,10 @@ Args : Exp COMMA Args {
      }
      ;
 
+ExtDef: error SEMI {
+                err = 1;
+      }
+      ;
 
 Def : error SEMI {
                 err = 1;
