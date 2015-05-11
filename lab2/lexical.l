@@ -17,6 +17,7 @@
 
     #define extern_tnode(str) {\
         tnode *p = new_node(#str, TERMINALS_LINE); \
+        p->syntax_label = _##str##_; \
         yylval.type_tnode_ptr = p; \
     }
 

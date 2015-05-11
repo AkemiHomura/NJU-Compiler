@@ -21,6 +21,7 @@ syntax-debug: syntax.y
 
 .PHONY: clean test clean-respreserved
 test:
+	touch test.out
 	rm test.out
 	touch test.out
 	for t in $(shell find test/*); \

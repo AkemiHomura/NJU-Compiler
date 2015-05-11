@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "syntax.tab.h"
-#include "tree.c"
+#include "tree.h"
+#include "ta.h"
 
 extern tnode* root;
 extern int err;

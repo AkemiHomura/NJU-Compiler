@@ -1,11 +1,11 @@
 CC=gcc
-CFLAGS=-lfl -O2 -o
+CFLAGS=-Werror -lfl -O2 -o
 LEXC_AND_YACCC=$(shell find -name "lex.yy.c" -o -name "syntax.tab.*")
 YACC_DEBUG_OUT=$(shell find -name "syntax.output")
-RES=$(shell find -name "parser");
+RES=$(shell find -name "parser")
 
-parser: lex.yy.c syntax.tab.c main.c
-	$(CC) main.c syntax.tab.c -ly $(CFLAGS) parser
+parser: lex.yy.c syntax.tab.c main.c tree.c ta.c
+	$(CC) main.c syntax.tab.c tree.c ta.c -ly $(CFLAGS) parser
 
 debug: lex.yy.c syntax.tab.c main.c
 	$(CC) main.c syntax.tab.c -ly $(CFLAGS) parser -D YYDEBUG
@@ -21,6 +21,7 @@ syntax-debug: syntax.y
 
 .PHONY: clean test clean-respreserved
 test:
+	touch test.out
 	rm test.out
 	touch test.out
 	for t in $(shell find test/*); \
