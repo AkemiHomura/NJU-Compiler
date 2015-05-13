@@ -60,9 +60,12 @@ void print_node(int pre, tnode *r) {
 void print_tree(tnode *r) {
     if(r == NULL) return;
     static int pre = 0;
-    int i = 0;
+    tnode *ptr = r->son;
     print_node(pre, r);
     pre ++;
-    for(; i < r->snum; i ++) print_tree(r->son[i]);
+    while(ptr != NULL) {
+        print_tree(ptr);
+        ptr = ptr->brother;
+    }
     pre --;
 }

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 tnode* new_node(char *in, int line) {
     tnode *new = malloc(sizeof(tnode));
@@ -9,19 +10,25 @@ tnode* new_node(char *in, int line) {
     new->line = line;
     strcpy(new->info, in);
     new->parent = NULL;
-    int i = 0;
-    for(; i < 7; i ++) new->son[i] = NULL;
-    new->snum = 0;
+    new->son = NULL;
+    new->last_son = NULL;
+    new->brother = NULL;
 
+    new->snum = 0;
     return new;
 }
 
 void link_node(tnode *parent, tnode *son) {
     if(son == NULL) return;
-    int i = parent->snum;
-    assert(i < 8);
-    parent->son[i] = son;
+    if(parent->son == NULL) {
+        parent->son = parent->last_son = son;
+    } else {
+        parent->last_son->brother = son;
+        parent->last_son = son;
+    }
     son->parent = parent;
+
     parent->snum ++;
 }
+
 

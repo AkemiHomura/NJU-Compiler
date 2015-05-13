@@ -3,26 +3,36 @@
 #include <stdint.h>
 #include "list.h"
 
+enum bool {
+    true = 1, false = 0
+};
+typedef enum bool bool;
+
 enum _type {
     _int, _float, _array, _struct, _void
 };
 typedef enum _type _type;
 
 struct type_t {
-    enum _type tname;
-    struct {
-        struct symbol *sec_lv;
-        struct symbol *sam_lv;
+    enum _type t;
+    union {
+        struct {
+            struct type_struct_t *in_struct;
+            char *struct_name;
+        };
+        struct type_t *in_array;
     };
     int size;
+    list_head list;
 };
 typedef struct type_t type_t;
 
-struct stack_ptr {
-    list_head stack_list;
-    list_head symbol_list;
+struct type_struct_t {
+    struct type_t *type;
+    char *name;
+    struct type_struct_t *brother;
 };
-typedef struct stack_ptr stack_ptr;
+typedef struct type_struct_t type_struct_t;
 
 struct hash_table {
     list_head hash_list;
@@ -32,7 +42,7 @@ struct hash_table {
 typedef struct hash_table hash_table;
 
 struct func_mes {
-    enum _type ret_type;
+    struct type_t *ret_type;
     int argc;
     type_t** argv;
 };
@@ -44,8 +54,7 @@ struct var_mes {
 typedef struct var_mes var_mes;
 
 struct symbol {
-    list_head col_list;
-    list_head row_list;
+    list_head list;
     char *name;
     /* function 0
      * variable 1
@@ -60,9 +69,23 @@ struct symbol {
 };
 typedef struct symbol symbol;
 
+struct stack_ptr {
+    list_head stack_list;
+    list_head node_list;
+};
+typedef struct stack_ptr stack_ptr;
+
+struct stack_node {
+    list_head *symbol_ptr;
+    list_head *hash_ptr;
+    list_head list;
+};
+typedef struct stack_node stack_node;
+
+
 extern list_head stack_root;
 extern list_head hash_root;
-
+extern list_head type_root;
 
 #define ERR_VARI_UNDEF      1
 #define ERR_FUNC_UNDEF      2
@@ -79,8 +102,8 @@ extern list_head hash_root;
 #define ERR_DOT_ON_NOSTR    13
 #define ERR_DOMAIN_FAIL     14
 #define ERR_STR_DEF_FAIL    15
-#define ERR_STR_REDEF       16
-#define ERR_STR_UNDEF       17
+#define ERR_STR_REDEF       16  //g
+#define ERR_STR_UNDEF       17  //g
 #define ERR_FUNC_NODEF      18
 #define ERR_FUNC_REDEC      19
 

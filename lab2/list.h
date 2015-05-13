@@ -9,8 +9,12 @@ struct list_head {
 };
 typedef struct list_head list_head;
 
+#define container_of(ptr, type, member) ({			\
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
+	(type *)( (char *)__mptr - offsetof(type,member) );})
+
 #define list_entry(ptr, type, member) \
-	((type*)((char*)(ptr) - (int)(&((type*)0)->member)))
+    container_of(ptr, type, member)
 
 static inline void
 list_add(list_head *prev, list_head *next, list_head *data) {
@@ -56,5 +60,7 @@ list_empty(list_head *list) {
 #define list_foreach(ptr, head) \
 	for ((ptr) = (head)->next; (ptr) != (head); (ptr) = (ptr)->next)
 
+#define list_foreach_rev(ptr, head) \
+	for ((ptr) = (head)->prev; (ptr) != (head); (ptr) = (ptr)->prev)
 #endif
 

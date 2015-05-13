@@ -28,7 +28,10 @@ struct tnode {
         char *strval;
     };
     struct tnode *parent;
-    struct tnode *son[7];
+    struct tnode *son;
+    struct tnode *last_son;
+    struct tnode *brother;
+
     int snum;
 };
 
