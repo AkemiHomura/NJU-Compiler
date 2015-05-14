@@ -17,7 +17,7 @@ struct type_t {
     enum _type t;
     union {
         struct {
-            struct type_struct_t *in_struct;
+            list_head in_struct;
             char *struct_name;
         };
         struct type_t *in_array;
@@ -30,7 +30,8 @@ typedef struct type_t type_t;
 struct type_struct_t {
     struct type_t *type;
     char *name;
-    struct type_struct_t *brother;
+    struct type_struct_t *prev;
+    struct type_struct_t *next;
 };
 typedef struct type_struct_t type_struct_t;
 
@@ -44,7 +45,7 @@ typedef struct hash_table hash_table;
 struct func_mes {
     struct type_t *ret_type;
     int argc;
-    type_t** argv;
+    list_head argv_list;
 };
 typedef struct func_mes func_mes;
 

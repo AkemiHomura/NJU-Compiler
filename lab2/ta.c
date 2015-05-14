@@ -22,7 +22,7 @@ static unsigned hash_pjw(char *name) {
     unsigned val = 0, i;
     for(; *name; ++ name) {
         val = (val << 2) + *name;
-        if(i = val & ~0x3fff) val = (val ^ (i >> 12)) & 0x3fff;
+        if((i = val & ~0x3fff)) val = (val ^ (i >> 12)) & 0x3fff;
     }
     return val;
 }
@@ -43,6 +43,7 @@ void init_symbol_table() {
 struct func_mes* new_function_message(type_t *ret_type) {
     func_mes *fm = (func_mes *)malloc(sizeof(func_mes));
     fm->ret_type = ret_type;
+    list_init(&fm->argv_list);
 
     return fm;
 }
@@ -79,7 +80,9 @@ static inline void touch_symbol(symbol* s) {
 struct type_t* new_struct_type(char *name) {
     type_t *t = (type_t *)malloc(sizeof(type_t));
     t->t = _struct;
-    t->struct_name = (char *)malloc(strlen(name) + 1);
+    if(name != NULL)
+        t->struct_name = (char *)malloc(strlen(name) + 1);
+    else t->struct_name = NULL;
     strcpy(t->struct_name, name);
     t->size = 0;
 
@@ -166,11 +169,15 @@ void export_symbol(symbol *s) {
     link_symbol_to_hash_table(s, ht);
 }
 
+void export_farg_symbol(symbol *s, func_mes *fm) {
+    list_add_before(&fm->argv_list, &s->list);
+}
+
 void del_symbol_from_hash_table(symbol *s) {
     list_del(&s->list);
 }
 
-type_t* find_struct_in_type(char *struct_name) {
+type_t* find_struct(char *struct_name) {
     list_head *ptr;
     list_foreach(ptr, &type_root) {
         type_t *t = list_entry(ptr, type_t, list);
@@ -180,6 +187,11 @@ type_t* find_struct_in_type(char *struct_name) {
     }
 
     return NULL;
+}
+
+int find_domain_in_struct(type_t *st) {
+    assert(st->t == _struct);
+
 }
 
 void link_type(type_t *t) {
@@ -236,40 +248,65 @@ int struct_equal(type_t *a, type_t *b) {
                 return 0;
         }
 
-        a_ptr = a_ptr->brother;
-        b_ptr = b_ptr->brother;
+        a_ptr = a_ptr->next;
+        b_ptr = b_ptr->next;
     }
 
     if(a_ptr != NULL || b_ptr != NULL) return 0;
     return 1;
 }
 
-int type_equal(symbol *a, symbol *b, int equal_flag) {
+int type_equal(type_t *a, type_t *b, int equal_flag) {
     int is_equal;
+    if(a->t != b->t) return 0;
     switch(equal_flag) {
         case EQUAL_BY_DOMAIN:
             {
                 /* Only Called by Structure Analysis
                  * */
-                assert(a->func_or_variable == 1 && b->func_or_variable == 1);
-                type_t *at, *bt;
-                at = a->variable_message->type;
-                bt = b->variable_message->type;
-
-                is_equal = struct_equal(at, bt);
+                if(a->t == _struct) {
+                    is_equal = struct_equal(a, b);
+                    break;
+                } else if(a->t == _array) {
+                    is_equal = array_equal(a, b);
+                }
             }
-            break;
         case EQUAL_BY_NAME:
         default:
-            if(a->name, b->name) is_equal = 1;
-            else is_equal = 0;
+            if(a->t == b->t) is_equal = 1;
             break;
     }
 
     return is_equal;
 }
 
-stack_ptr *push_args_stack();
+int check_arg_type(symbol *s, int argn, type_t *t) {
+    assert(s->func_or_variable == 0);
+    func_mes *fm = s->function_message;
+    assert(argn < fm->argc);
+    list_head *ptr;
+
+    static int argi = -1;
+    static symbol *quick_s = NULL;
+    static symbol *quick_arg_s = NULL;
+    if(quick_s != s) quick_s = s, argi = -1, quick_arg_s = NULL;
+    else if(argn < argi) argi = -1, quick_arg_s = NULL;
+
+    if(quick_arg_s != NULL) {
+        for(ptr = quick_arg_s->list.next; argi < argn; argi ++,
+                ptr = ptr->next);
+    } else {
+        for(ptr = fm->argv_list.next; argi < argn; argi ++,
+                ptr = ptr->next);
+    }
+    symbol *s_arg = list_entry(ptr, symbol, list);
+    assert(s_arg->func_or_variable == 1);
+    quick_arg_s = s_arg;
+    if(!type_equal(s_arg->variable_message->type, t, EQUAL_BY_DOMAIN))
+        return 0;
+    else return 1;
+}
+
 void push_stack();
 void pop_stack();
 
@@ -290,7 +327,7 @@ type_t* struct_specifier(tnode *t, int link_to_type) {
         /* declaration of struct */
         tnode *tag = t->last_son;
         assert(label_of(tag->son) == _ID_);
-        st = find_struct_in_type(get_id_str(tag->son));
+        st = find_struct(get_id_str(tag->son));
         if(!st) print_semantic_error(ERR_STR_UNDEF, t->line,
                 "Undefined Struct", get_id_str(tag->son));
     } else {
@@ -298,12 +335,12 @@ type_t* struct_specifier(tnode *t, int link_to_type) {
         tnode *opt_tag = t->son->brother;
         assert(opt_tag == NULL || label_of(opt_tag) == _OptTag_);
         if(opt_tag == NULL)
-            st = new_struct_type("");
+            st = new_struct_type(NULL);
         else {
             assert(label_of(opt_tag->son) == _ID_);
-            if(!(st = find_struct_in_type(opt_tag->son->strval))) {
+            if(!(st = find_struct(opt_tag->son->strval))) {
                 symbol *s;
-                if(s = find_symbol_by_name(get_id_str(opt_tag->son)))
+                if((s = find_symbol_by_name(get_id_str(opt_tag->son))))
                     print_semantic_error(ERR_STR_REDEF, t->line,
                             "Struct name conflict with", get_id_str(opt_tag->son));
                 else {
@@ -321,7 +358,7 @@ type_t* struct_specifier(tnode *t, int link_to_type) {
         tnode *dl = opt_tag->brother->brother;
         assert(label_of(dl) == _DefList_);
         type_struct_t *in_s;
-        def_list_in_struct(dl, in_s);
+        def_list_in_struct(dl, &in_s);
         st->in_struct = in_s;
     }
 
@@ -350,12 +387,21 @@ symbol* var_dec(tnode *t ,type_t *type);
 stack_ptr *func_dec(tnode* t, type_t *ret_type) {
     assert(label_of(t) == _FunDec_);
     int hash = hash_pjw(get_id_str(t->son));
+    symbol *s;
+    stack_ptr *sp;
+    if(find_symbol_by_name(get_id_str(t->son))) {
+        print_semantic_error(ERR_FUNC_REDEF, t->son->line,
+                "Function Redefinition", get_id_str(t->son));
+        func_mes *fm = new_function_message(ret_type);
+        s = new_symbol("$", 0, t->son->line,
+                fm);
+    }
+    else {
+        func_mes *fm = new_function_message(ret_type);
+        s = new_symbol(get_id_str(t->son), 0, t->son->line,
+                fm);
+    }
 
-    func_mes *fm = new_function_message(ret_type);
-    symbol *s = new_symbol(get_id_str(t->son), 0, t->son->line,
-            fm);
-
-    stack_ptr *sp = push_args_stack();
     tnode *vl = t->son->son->son;
     /* var list */
     tnode *pd;
@@ -366,14 +412,14 @@ stack_ptr *func_dec(tnode* t, type_t *ret_type) {
             symbol *arg_s = var_dec(pd->last_son, arg_type);
 
             assert(arg_s != NULL);
-            export_symbol(arg_s);
+            export_farg_symbol(arg_s, s->function_message);
 
             if(label_of(vl->last_son) != _VarList_) break;
             vl = vl->last_son;
         } while(true);
     }
 
-    touch_symbol(s);
+    //touch_symbol(s);
     push_stack();
     return sp;
 }
@@ -390,7 +436,7 @@ symbol* var_dec(tnode *t, type_t *type) {
     assert(label_of(t) == _VarDec_);
     symbol *s;
     if(label_of(t->son) == _ID_) {
-        if(s = find_symbol_by_name_in_last_stack(get_id_str(t->son))) {
+        if((s = find_symbol_by_name_in_last_stack(get_id_str(t->son)))) {
             print_semantic_error(ERR_VARI_REDEF, t->line,
                     "Redefined variable", get_id_str(t->son));
             return NULL;
@@ -419,7 +465,7 @@ void ext_dec_list(tnode *t, type_t *type) {
     }
 }
 
-void expression(tnode *t);
+type_t* expression(tnode *t);
 
 type_struct_t *var_dec_in_struct(tnode *t, type_t *type) {
     assert(label_of(t) == _VarDec_);
@@ -429,6 +475,7 @@ type_struct_t *var_dec_in_struct(tnode *t, type_t *type) {
     ts->name = (char*)malloc(strlen(get_id_str(t)) + 1);
     strcpy(ts->name, get_id_str(t));
     ts->type = type;
+    ts->prev = ts->next = NULL;
 
     return ts;
 }
@@ -456,8 +503,21 @@ void dec_list(tnode *t, type_t *type) {
     }
 }
 
-void dec_list_in_struct(tnode *t, type_t *type) {
+type_struct_t* dec_list_in_struct(tnode *t, type_t *type) {
     assert(label_of(t) == _DecList_);
+    type_struct_t *ts, *ts_prev;
+    ts = ts_prev = NULL;
+    while(label_of(t) != _Dec_) {
+        ts = dec_in_struct(t->son, type);
+        if(!ts_prev) {
+            ts_prev->next = ts;
+            ts->prev = ts_prev;
+        }
+        ts_prev = ts;
+        t = t->last_son;
+    }
+
+    return ts;
 }
 
 void def(tnode *t) {
@@ -467,6 +527,18 @@ void def(tnode *t) {
     dec_list(t->son->brother, type);
 }
 
+type_struct_t* def_in_struct(tnode *t) {
+    assert(label_of(t) == _Def_);
+    type_t *type = specifier(t->son, false);
+
+    return dec_list_in_struct(t->son->brother, type);
+}
+
+inline type_struct_t *head_of(type_struct_t *ts) {
+    while(ts->prev != NULL) ts = ts->prev;
+    return ts;
+}
+
 /* mode :
  * 0: normal mode, link every symbol to table
  * 1: struct mode, link brother...
@@ -474,30 +546,140 @@ void def(tnode *t) {
 void __def_list(tnode *t, int mode, void *ret) {
     assert(label_of(t) == _DefList_);
     if(mode == 0) {
+        while(t != NULL) {
+            def(t->son);
+            t = t->last_son;
+        }
+    } else {
+        type_struct_t *ts, *ts_prev_end = NULL, *ts_next_head,
+                      *ts_head;
+        while(t != NULL) {
+            ts = def_in_struct(t->son);
+            ts_next_head = head_of(ts);
+            if(!ts_prev_end) {
+                ts_prev_end->next = ts_next_head;
+                ts_next_head->prev = ts_prev_end;
+            } else ts_head = ts_next_head;
+            ts_prev_end = ts;
 
+            t = t->last_son;
+        }
+        *(type_struct_t **)ret = ts_head;
+    }
+}
+
+void compst(tnode *t, type_t *ret_type);
+void stmt(tnode *t, type_t *ret_type) {
+    switch(label_of(t->son)) {
+        case _Exp_: {
+            expression(t->son);
+            break;
+        }
+        case _CompSt_: {
+            compst(t->son, ret_type);
+            break;
+        }
+        case _RETURN_: {
+            type_t *ret = expression(t->son->brother);
+            if(!type_equal(ret, ret_type, EQUAL_BY_DOMAIN)) {
+                print_semantic_error(ERR_RET_MISMATCH, t->son->brother->line,
+                        "Type mismatched for return", NULL);
+            }
+            break;
+        }
+        case _IF_: {
+            expression(t->son->brother->brother);
+            if(t->snum == 4) {
+                stmt(t->last_son, ret_type);
+            } else {
+                stmt(t->last_son, ret_type);
+            }
+            break;
+        }
+        case _WHILE_: {
+            expression(t->son->brother->brother);
+            stmt(t->last_son, ret_type);
+            break;
+        }
+    }
+}
+
+void stmt_list(tnode *t, type_t *ret_type) {
+    assert(label_of(t) == _StmtList_);
+    while(t != NULL) {
+        stmt(t->son, ret_type);
+        t = t->last_son;
+    }
+}
+
+void args(tnode *t, symbol *func) {
+    assert(label_of(t) == _Args_);
+    type_t *type;
+    int i = 0;
+    while(label_of(t->last_son) == _Args_) {
+        type = expression(t->son);
+        if(!check_arg_type(func, i, type)) {
+            print_semantic_error(ERR_F_PARA_MISMATCH,
+                    t->son->line, "Function arguments error", func->name);
+            break;
+        }
+    }
+    type = expression(t);
+    if(!check_arg_type(func, i, type)) {
+        print_semantic_error(ERR_F_PARA_MISMATCH,
+                t->son->line, "Function arguments error", func->name);
+    }
+}
+
+type_t* expression(tnode *t) {
+    symbol *s;
+    if(label_of(t->son) == _INT_) return &type_int;
+    else if(label_of(t->son) == _FLOAT_) return &type_float;
+    else if(label_of(t->son) == _ID_) {
+        if(label_of(t->last_son) == _ID_) {
+            if(!(s = find_symbol_by_name(t->son->strval)))
+                goto VARI_DEF_NOT_FOUND;
+            if(s->func_or_variable == 0)
+                goto VARI_DEF_NOT_FOUND;
+            return s->variable_message->type;
+VARI_DEF_NOT_FOUND:
+            print_semantic_error(ERR_VARI_UNDEF, t->son->line,
+                    "Undefined variable", t->son->strval);
+            return NULL;
+        } else {
+            if(!(s = find_symbol_by_name(t->son->strval)))
+                goto FUNC_DEF_NOT_FOUND;
+            if(s->func_or_variable == 1)
+                goto FUNC_DEF_NOT_FOUND;
+            if(label_of(t->son->brother->brother) == _Args_)
+                args(t->son->brother->brother, s);
+            return s->function_message->ret_type;
+FUNC_DEF_NOT_FOUND:
+            print_semantic_error(ERR_FUNC_UNDEF, t->son->line,
+                    "Undefined function", s->name);
+            return NULL;
+        }
+    }
+    else if(label_of(t->son) == _NOT_) {
+        type_t *type = expression(t->last_son);
+        if(type != &type_int) {
+            print_semantic_error(ERR_OP_MISMATCH, t->son->line,
+                    "Not on noint", NULL);
+                return NULL;
+        }
+        return type;
+    } else if(label_of(t->son) == _MINUS_) {
+        type_t *type = expression(t->last_son);
+        return type;
+    } else if(label_of(t->son) == _LP_) {
+        type_t *type = expression(t->son->brother);
+        return type;
     } else {
 
     }
 }
 
-void expression(tnode *);
-void stmt(tnode *t) {
-
-}
-
-void stmt_list(tnode *t) {
-
-}
-
-void args(tnode *t) {
-
-}
-
-void expression(tnode *t) {
-
-}
-
-void compst(tnode *t, type_t *ret_type, stack_ptr* fun_args_stack) {
+void compst(tnode *t, type_t *ret_type) {
 
 }
 
@@ -515,7 +697,7 @@ void main_parser(tnode *tree_ptr) {
             if(label_of(sec) == _FunDec_) {
                 stack_ptr *p = func_dec(sec, type);
                 /* Compst */
-                compst(sec->last_son, type, p);
+                compst(sec->last_son, type);
             } else if(label_of(sec) == _ExtDecList_) {
                 ext_dec_list(sec, type);
             }
@@ -545,7 +727,7 @@ struct stack_ptr* new_stack_ptr() {
     return sp;
 }
 
-stack_ptr* push_args_stack() {
+void push_stack() {
     stack_ptr *sp = (stack_ptr *)malloc(sizeof(stack_ptr));
     list_init(&sp->stack_list);
     list_init(&sp->node_list);
@@ -562,12 +744,6 @@ stack_ptr* push_args_stack() {
         sn->symbol_ptr = ht->symbol_list.prev;
         sn->hash_ptr = &ht->symbol_list;
     }
-
-    return sp;
-}
-
-inline void push_stack() {
-    push_args_stack();
 }
 
 void pop_stack() {
@@ -583,5 +759,4 @@ void pop_stack() {
         }
     }
 }
-
 
