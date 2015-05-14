@@ -7,14 +7,18 @@
 
 type_t std_type_int = {_int_, NULL, NULL, NULL};
 type_t std_type_float = {_float_, NULL, NULL, NULL};
-#define label_of(ptr) ((ptr)->syntax_label)
 
 list_head sstack_root, tstruct_root;
 
-void pserror(int err, int line, char *state,
-        char *errinfo) {
-    fprintf(stderr, "Error type %d at line %d: %s \"%s\"\n", err,
-            line, state, errinfo);
+void pserror(int err, int line, char *errinfo,
+        ...) {
+    fprintf(stderr, "Error type %d at line %d: ", err,
+            line);
+    char *format, *info;
+    va_list arg_ptr;
+    va_start(arg_ptr, errinfo);
+    vfprintf(stderr, errinfo, arg_ptr);
+    va_end(arg_ptr);
 }
 
 static unsigned hash_pjw(char *name) {
@@ -26,9 +30,10 @@ static unsigned hash_pjw(char *name) {
     return val;
 }
 
-static void init() {
+static void init_parse() {
     list_init(&sstack_root);
     list_init(&tstruct_root);
+    push_sstack();
 }
 
 func_mes* new_func(type_t *rett) {
@@ -71,7 +76,7 @@ type_t* new_type_array(int size) {
     return t;
 }
 
-hash_t* new_hash_table(int hash) {
+static hash_t* new_hash_table(int hash) {
     hash_t *ht = (hash_t *)malloc(sizeof(hash_t));
     ht->hash = hash;
     list_init(&ht->hash_list);
@@ -79,14 +84,14 @@ hash_t* new_hash_table(int hash) {
     return ht;
 }
 
-sstack* new_sstack() {
+static sstack* new_sstack() {
     sstack *sst = (sstack *)malloc(sizeof(sstack));
     list_init(&sst->stack_list);
     list_init(&sst->hash_list);
     return sst;
 }
 
-void link_sstack(sstack *sst) {
+static void link_sstack(sstack *sst) {
     list_add_before(&sstack_root, &sst->stack_list);
 }
 
@@ -100,7 +105,7 @@ void pop_sstack() {
     list_del(sstack_root.prev);
 }
 
-void link_hash_table_to_stack(sstack *sst,  hash_t *ht) {
+static void link_hash_table_to_stack(sstack *sst,  hash_t *ht) {
     list_add_before(&sst->hash_list, &ht->hash_list);
 }
 
@@ -126,14 +131,14 @@ symbol* find_by_name_in_stack(sstack *sst, char *name) {
     }
     return NULL;
 }
-
 void link_symbol_to_hash_table(symbol *s, hash_t *ht) {
     list_add_before(&ht->symbol_list, &s->list);
 }
 
-void export_symbol_to_stack(sstack *sst, symbol *s) {
+void export_symbol_to_stack(symbol *s, sstack *sst) {
     int hash = hash_pjw(s->name);
     hash_t *ht = find_by_hash_in_stack(sst, hash);
+    if(!ht) ht = new_hash_table(hash);
     link_symbol_to_hash_table(s, ht);
 }
 
@@ -200,10 +205,7 @@ bool type_equal(type_t *a, type_t *b) {
 #define func_arg_check_go(type) func_arg_check(NULL, type, FUNC_ARG_CHECK_GO)
 #define func_arg_check_end() func_arg_check(NULL, NULL, FUNC_ARG_CHECK_END)
 
-
-bool func_arg_check(func_mes *fm, type_t *type, int mode) {
-    static symbol *arg_s;
-    static int argc, argct;
+bool func_arg_check(func_mes *fm, type_t *type, int mode) { static symbol *arg_s; static int argc, argct;
     switch(mode) {
         case FUNC_ARG_CHECK_INIT:
             argc = 0;
@@ -225,4 +227,15 @@ bool func_arg_check(func_mes *fm, type_t *type, int mode) {
         default: return false;
     }
 }
+
+
+/* parse part;
+ *
+ *
+ */
+
+void main_parse(tnode *tp) {
+
+}
+
 
