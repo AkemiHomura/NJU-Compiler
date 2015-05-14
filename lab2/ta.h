@@ -103,8 +103,8 @@ extern list_head type_root;
 #define ERR_DOT_ON_NOSTR    13
 #define ERR_DOMAIN_FAIL     14
 #define ERR_STR_DEF_FAIL    15
-#define ERR_STR_REDEF       16  //g
-#define ERR_STR_UNDEF       17  //g
+#define ERR_STR_REDEF       16
+#define ERR_STR_UNDEF       17
 #define ERR_FUNC_NODEF      18
 #define ERR_FUNC_REDEC      19
 

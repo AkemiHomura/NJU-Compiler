@@ -3,3 +3,5 @@ lex.yy.c
 scanner
 parser
 .ycm*
+.before/*
+
