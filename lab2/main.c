@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include "syntax.tab.h"
 #include "tree.h"
-#include "ta.h"
 
 extern tnode* root;
 extern int err;
 
 void print_tree(tnode *);
+void main_parse(tnode *);
 
 int main(int argc, char** argv) {
     if(argc <= 1) return 1;
@@ -21,39 +21,38 @@ int main(int argc, char** argv) {
     yydebug = 1;
 #endif
     yyparse();
-    if(!err) print_tree(root);
+    if(!err) {
+        //print_tree(root);
+        main_parse(root);
+    }
     return 0;
 }
 
 void print_node(int pre, tnode *r) {
     int i = 0;
     for(; i < pre; i ++) printf("  ");
-    if(r->line > 0) {
-        printf("%s (%d)\n", r->info, r->line);
-    } else {
+        switch(r->syntax_label) {
+            case _INT_:
         printf("%s", r->info);
-        switch(r->line) {
-            case -1:
-                    printf("\n");
+                    printf(": %d\n", r->intval);
                     break;
-            case -INT:
-                     printf(": %d\n", r->intval);
-                    break;
-            case -FLOAT:
+            case _FLOAT_:
+        printf("%s", r->info);
                     printf(": %f\n", r->floval);
                     break;
-            case -TYPE:
+            case _TYPE_:
+        printf("%s", r->info);
                     if(r->intval == 0) printf(": int\n");
                     else printf(": float\n");
                     break;
-            case -ID:
+            case _ID_:
+        printf("%s", r->info);
                     printf(": %s\n", r->strval);
                     break;
             default:
-                    perror("Ni te me dou wo ne!\n");
+        printf("%s (%d)\n", r->info, r->line);
                     break;
         }
-    }
 
 }
 

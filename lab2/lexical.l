@@ -16,7 +16,7 @@
     void comment();
 
     #define extern_tnode(str) {\
-        tnode *p = new_node(#str, TERMINALS_LINE); \
+        tnode *p = new_node(#str, yylineno); \
         p->syntax_label = _##str##_; \
         yylval.type_tnode_ptr = p; \
     }
@@ -133,29 +133,33 @@ NBLANK  [^\n\f\v\t\r ]
     extern_tnode(WHILE)
     return WHILE; printf("WHILE\n");}
 {TYPE}  {
-    tnode *p = new_node("TYPE", -TYPE);
+    tnode *p = new_node("TYPE", yylineno);
+    yylval.type_tnode_ptr = p;
     if(strcmp(yytext, "int") == 0) p->intval = 0;
     else p->intval = 1;
-    yylval.type_tnode_ptr = p;
+    p->syntax_label = _TYPE_;
     return TYPE; printf("TYPE: %s\n", yytext);}
 {FLOAT} {
-    tnode *p = new_node("FLOAT", -FLOAT);
+    tnode *p = new_node("FLOAT", yylineno);
     p->floval = atof(yytext);
     yylval.type_tnode_ptr = p;
+    p->syntax_label = _FLOAT_;
     return FLOAT; printf("FLOAT: %s\n", yytext);}
 {INT}   {
-    tnode *p = new_node("INT", -INT);
+    tnode *p = new_node("INT", yylineno);
     if(yytext[0] == '0') {
         if(yytext[1] == 'x' || yytext[1] == 'X') sscanf(yytext, "%x", &p->intval);
         else sscanf(yytext, "%o", &p->intval);
     } else sscanf(yytext, "%d", &p->intval);
     yylval.type_tnode_ptr = p;
+    p->syntax_label = _INT_;
     return INT; printf("INT: %s\n", yytext);}
 {ID}    {
-    tnode *p = new_node("ID", -ID);
+    tnode *p = new_node("ID", yylineno);
     p->strval = malloc(sizeof(char) * (yyleng + 1));
     strcpy(p->strval, yytext);
     yylval.type_tnode_ptr = p;
+    p->syntax_label = _ID_;
     return ID; printf("ID: %s\n", yytext);}
 
 {BLANK} {}

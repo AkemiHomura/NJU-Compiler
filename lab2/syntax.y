@@ -8,13 +8,14 @@
     #define YYERROR_VERBOSE 1
     #define yyerror(msg) _yyerror(msg)
     void _yyerror(const char *msg) {
-    printf("Error type B at Line %d: %s\n", yylineno, msg);
-
+        printf("Error type B at Line %d: %s\n", yylineno, msg);
+        err = 1;
+    }
     #define link(n) {\
         int i = n - 1; \
         for(; i >= 0; i --) link_node((yyval.type_tnode_ptr), (yyvsp[-i].type_tnode_ptr)); \
     }
-}
+
 %}
 %union {
     struct tnode* type_tnode_ptr;
@@ -71,6 +72,11 @@ ExtDef : Specifier ExtDecList SEMI {
             $$ = new_node("ExtDef", @$.first_line);
             $$->syntax_label = _ExtDef_;
         link(3);
+       }
+       | Specifier FunDec SEMI {
+            $$ = new_node("ExtDef", @$.first_line);
+            $$->syntax_label = _ExtDef_;
+            link(3);
        }
        ;
 ExtDecList : VarDec {
@@ -138,7 +144,7 @@ VarDec : ID {
 FunDec : ID LP VarList RP {
         $$ = new_node("FunDec", @$.first_line);
         $$->syntax_label = _FunDec_;
-        link(3);
+        link(4);
        }
        | ID LP RP {
         $$ = new_node("FunDec", @$.first_line);
@@ -348,38 +354,33 @@ Exp : Exp ASSIGNOP Exp {
     ;
 Args : Exp COMMA Args {
         $$ = new_node("Args", @$.first_line);
-        $$->syntax_label = _Exp_;
+        $$->syntax_label = _Args_;
         link(3);
      }
      | Exp {
         $$ = new_node("Args", @$.first_line);
-        $$->syntax_label = _Exp_;
+        $$->syntax_label = _Args_;
         link_node($$, $1);
      }
      ;
 
 ExtDef: error SEMI {
-                err = 1;
       }
       ;
 
 Def : error SEMI {
-                err = 1;
     }
     ;
 
 Stmt : error SEMI {
-                err = 1;
      }
      ;
 
 CompSt : error RC {
-                err = 1;
        }
        ;
 
 Exp : error Exp {
-                err = 1;
     }
     ;
 

@@ -3,6 +3,7 @@
 #include "list.h"
 #include "tree.h"
 #include "string.h"
+#include "stdio.h"
 
 enum bool {
     true = 1, false = 0
@@ -29,11 +30,11 @@ struct type_t {
     };
 };
 typedef struct type_t type_t;
-#define tid_of(x) (x)->tid
+#define tid_of(x) ((x)->tid)
 #define type_int(x) ((x)->tid == _int_)
-#define type_float(x) ((x)->tid == _int_)
-#define type_struct(x) ((x)->tid == _int_)
-#define type_array(x) ((x)->tid == _int_)
+#define type_float(x) ((x)->tid == _float_)
+#define type_struct(x) ((x)->tid == _struct_)
+#define type_array(x) ((x)->tid == _array_)
 
 #define type_array_size(x) ((x)->size)
 #define type_array_next(x) ((x)->ta)
@@ -43,7 +44,7 @@ struct func_mes {
     type_t *rett;
     int argc;
     list_head argv_list;
-    //int vis_tag;
+    int vis_tag;
 };
 typedef struct func_mes func_mes;
 
@@ -111,9 +112,9 @@ type_t* new_type_array(int size);
 void push_sstack();
 void pop_sstack();
 #define get_sstack(list_ptr) list_entry(list_ptr, sstack, stack_list)
-#define sstack_top (list_entry(sstack_root.prev, sstack, stack_list))
-#define sstack_bottom (list_entry(sstack_root.next, sstack, stack_list))
-#define sstack_prev(x) (list_entry(x->stack_list.prev, sstack, stack_list))
+#define sstack_top (list_entry(sstack_root.next, sstack, stack_list))
+#define sstack_bottom (list_entry(sstack_root.prev, sstack, stack_list))
+#define sstack_down(x) (list_entry(x->stack_list.next, sstack, stack_list))
 #define global_sstack sstack_bottom
 hash_t* find_by_hash_in_stack(sstack *sst, int hash);
 #define find_by_hash_in_last_stack(hash) find_by_hash_in_stack(sstack_top, hash)
@@ -131,7 +132,7 @@ void export_func_arg_to_sstack(func_mes *fm, sstack *sst);
 #define export_func_arg(fm) export_func_arg_to_sstack(fm, sstack_top)
 void export_type_struct(type_t *type);
 type_t* get_struct(char *sname);
-bool domain_of_struct(type_t *st, char *dname);
+bool domain_of_struct(type_t *st, char *dname, type_t **dtype);
 bool func_arg_dup(func_mes *fm, char *aname);
 bool type_equal(type_t *a, type_t *b);
 bool func_arg_check(func_mes *fm, type_t *type, int mode);
@@ -177,7 +178,28 @@ void ext_def(tnode *t);
 void ext_def_list(tnode *t);
 void main_parse(tnode *tp);
 
+#define xx \
+    printf("xx\n");
 #endif
+
+void print_sstack(sstack *sst) {
+    list_head *p, *q;
+    list_foreach(p, &sst->hash_list) {
+        hash_t *ht = list_entry(p, hash_t, hash_list);
+        list_foreach(q, &ht->symbol_list) {
+            symbol *s = list_entry(q, symbol, list);
+            printf("sstack %s\n", s->name);
+        }
+        printf("one hash\n");
+    }
+}
+void sprint_sstack(sstack *sst) {
+    list_head *p;
+    list_foreach(p, &sst->struct_list) {
+        type_t *s = list_entry(p, type_t, struct_list);
+        printf("sstack %s\n", s->name);
+    }
+}
 
 /* no name struct named "$"
  * no name function named "$"

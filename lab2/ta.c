@@ -20,7 +20,7 @@ void pserror(int err, int line, char *errinfo,
     va_start(arg_ptr, errinfo);
     vfprintf(stderr, errinfo, arg_ptr);
     va_end(arg_ptr);
-    fprintf(stderr, "\n");
+    fprintf(stderr, ".\n");
 }
 
 static unsigned hash_pjw(char *name) {
@@ -41,6 +41,7 @@ func_mes* new_func(type_t *rett) {
     func_mes *fm = (func_mes *)malloc(sizeof(func_mes));
     fm->rett = rett;
     fm->argc = 0;
+    fm->vis_tag = 0;
     list_init(&fm->argv_list);
     return fm;
 }
@@ -94,7 +95,7 @@ static sstack* new_sstack() {
 }
 
 static void link_sstack(sstack *sst) {
-    list_add_before(&sstack_root, &sst->stack_list);
+    list_add_after(&sstack_root, &sst->stack_list);
 }
 
 void push_sstack() {
@@ -104,7 +105,7 @@ void push_sstack() {
 
 void pop_sstack() {
     assert(!list_empty(&sstack_root));
-    list_del(sstack_root.prev);
+    list_del(sstack_root.next);
 }
 
 static void link_hash_table_to_stack(sstack *sst,  hash_t *ht) {
@@ -170,7 +171,10 @@ void link_symbol_to_hash_table(symbol *s, hash_t *ht) {
 void export_symbol_to_stack(symbol *s, sstack *sst) {
     int hash = hash_pjw(s->name);
     hash_t *ht = find_by_hash_in_stack(sst, hash);
-    if(!ht) ht = new_hash_table(hash);
+    if(!ht) {
+        ht = new_hash_table(hash);
+        link_hash_table_to_stack(sst, ht);
+    }
     link_symbol_to_hash_table(s, ht);
 }
 
@@ -203,7 +207,7 @@ type_t *get_struct(char *sname) {
     list_head *p;
     type_t *ret;
     sstack *sst;
-    for(sst = sstack_top; ; sst = sstack_prev(sst)) {
+    for(sst = sstack_top; ; sst = sstack_down(sst)) {
         list_foreach(p, &sst->struct_list) {
             ret = list_entry(p, type_t, struct_list);
             if(strcmp(ret->name, sname) == 0) return ret;
@@ -213,16 +217,22 @@ type_t *get_struct(char *sname) {
     return NULL;
 }
 
-bool domain_of_struct(type_t *st, char *dname) {
+bool domain_of_struct(type_t *st, char *dname, type_t **dtype) {
     assert(type_struct(st));
     list_head *p;
     symbol *s;
+    bool ret = false;
     list_foreach(p, &st->struct_domain_symbol) {
         s = list_entry(p, symbol, list);
         assert(s->is_var);
-        if(strcmp(s->name ,dname) == 0) return true;
+//        printf("%s %s\n", s->name, dname);
+        if(strcmp(s->name ,dname) == 0) {
+            if(dtype != NULL) *dtype = s->vmes->type;
+            return true;
+        }
         if(type_struct(s->vmes->type) && strcmp(s->name, "$") == 0)
-            return domain_of_struct(s->vmes->type, dname);
+            ret =  domain_of_struct(s->vmes->type, dname, dtype);
+        if(ret) return true;
     }
     return false;
 }
@@ -238,6 +248,8 @@ bool func_arg_dup(func_mes *fm, char *aname) {
 }
 
 bool type_equal(type_t *a, type_t *b) {
+//    printf("type equal %d %d\n", a->tid, b->tid);
+    if(a == NULL || b == NULL) return false;
     if(tid_of(a) != tid_of(b)) return false;
     if(type_struct(a)) {
         list_head *ap, *bp;
@@ -288,19 +300,17 @@ bool func_arg_check(func_mes *fm, type_t *type, int mode) { static symbol *arg_s
 
 type_t* struct_specifier(tnode *t) {
     assert(label_equal(t, StructSpecifier));
-
     type_t *st = NULL;
     if(label_equal(tnode_sec_son(t), Tag)) {
         tnode *id = tnode_sec_son(t)->son;
         assert(label_equal(id, ID));
         st = get_struct(id_str(id));
-        if(!st) pserror(ERR_STR_UNDEF, id->line,
+        if(!st) pserror(ERR_STR_UNDEF, t->line,
                 "Undefined structure \"%s\"", id_str(id));
     } else {
-        tnode *opt_tag = t->son;
+        tnode *opt_tag = tnode_sec_son(t);
         tnode *id = opt_tag->son;
-        assert(label_equal(opt_tag, OptTag));
-        if(id == NULL) {
+        if (!label_equal(opt_tag, OptTag)) {
             st = new_type_struct("$");
         } else {
             assert(label_equal(id, ID));
@@ -310,6 +320,7 @@ type_t* struct_specifier(tnode *t) {
                 else st = new_type_struct(id_str(id));
             } else goto Duplicated;
         }
+        export_type_struct(st);
         def_list_in_struct(tnode_for_son(t), st);
         return st;
 Duplicated:
@@ -324,10 +335,9 @@ type_t* specifier(tnode *t) {
     assert(label_equal(t, Specifier));
     type_t *ret = NULL;
     if(label_equal(t->son, TYPE)) {
-        tnode *tp = t->son->son;
-        if(label_equal(tp, INT))
+        if(t->son->intval == 0)
             ret = &std_type_int;
-        else if(label_equal(tp, FLOAT))
+        else
             ret = &std_type_float;
     } else {
         ret = struct_specifier(t->son);
@@ -339,31 +349,41 @@ void fun_dec(tnode *t, type_t *rett) {
     assert(label_equal(t, FunDec));
     tnode *id = t->son;
     symbol *fs = NULL;
-    func_mes *fm = new_func(rett);
-    if(!find_by_name_global(id_str(id))) {
-        pserror(ERR_FUNC_REDEF, id->line,
-                "Redefined function \"%s\"", id_str(id));
-    }
+    func_mes *fm = NULL;
+    fs = find_by_name_global(id_str(id));
+    if(fs) {
+        if(fs->is_var || (!fs->is_var && fs->fmes->vis_tag))
+            pserror(ERR_FUNC_REDEF, t->line,
+                    "Redefined function \"%s\"", id_str(id));
+        else if(!fs->is_var)
+            fm = fs->fmes;
 
-    tnode *vl = tnode_thi_son(t);
-    if(label_equal(vl, VarList)) {
-        tnode *pd = vl->son;
-        symbol *args = NULL;
-        while(label_equal(pd, ParamDec)) {
-            type_t *argt = specifier(pd->son);
-            if(argt != NULL)
-                args = var_dec(pd->last_son, argt);
-            if(func_arg_dup(fm, args->name))
-                pserror(ERR_VARI_REDEF, pd->line,
-                        "Redefined varible \"%s\"", args->name);
-            else
-                export_symbol_to_func(args, fm);
-            vl = vl->last_son;
-            pd = vl->son;
+    } else {
+        fm = new_func(rett);
+        fs = new_symbol(id_str(id), false, t->line, fm);
+        tnode *vl = tnode_thi_son(t);
+        if(label_equal(vl, VarList)) {
+            tnode *pd = vl->son;
+            symbol *args = NULL;
+            while(label_equal(pd, ParamDec)) {
+                type_t *argt = specifier(pd->son);
+                if(argt != NULL)
+                    args = var_dec(pd->last_son, argt);
+                if(func_arg_dup(fm, args->name))
+                    pserror(ERR_VARI_REDEF, pd->line,
+                            "Redefined varible \"%s\"", args->name);
+                else
+                    export_symbol_to_func(args, fm);
+                vl = vl->last_son;
+                pd = vl->son;
+            }
         }
+        export_symbol(fs);
     }
-
-    compst(t->brother, rett, fm);
+    if(label_equal(t->brother, CompSt)) {
+        fs->fmes->vis_tag = 1;
+        compst(t->brother, rett, fm);
+    }
 }
 
 static type_t* var_dec_array(tnode *t, type_t *type) {
@@ -413,7 +433,7 @@ void dec(tnode *t, type_t *type, type_t *st) {
     if(!st) {// func
         if(find_by_name_in_stack_top(s->name)) {
             pserror(ERR_VARI_REDEF, s->line,
-                    "Redefined variable\"%s\"", s->name);
+                    "Redefined variable \"%s\"", s->name);
             return;
         }
         else export_symbol(s);
@@ -425,7 +445,7 @@ void dec(tnode *t, type_t *type, type_t *st) {
                         "Type mismatched for assignment");
         }
     } else {
-        if(domain_of_struct(st, s->name)) {
+        if(domain_of_struct(st, s->name, NULL)) {
             pserror(ERR_STR_DEF_FAIL, s->line,
                     "Redefined field \"%s\"", s->name);
             return;
@@ -443,7 +463,7 @@ void dec(tnode *t, type_t *type, type_t *st) {
 void dec_list(tnode *t, type_t *type, type_t *st) {
     assert(label_equal(t, DecList));
     while(!label_equal(t, Dec)) {
-        dec(t->son, st, type);
+        dec(t->son, type, st);
         t = t->last_son;
     }
 }
@@ -455,14 +475,16 @@ void def(tnode *t, type_t *st) {
 }
 
 void def_list(tnode *t, type_t *st) {
-    assert(label_equal(t, DecList));
-    while(t->son) {
+    assert(label_equal(t, DefList));
+    while(true) {
         def(t->son, st);
+        if(!tnode_sec_son(t)) break;
         t = t->last_son;
     }
 }
 
 void stmt(tnode *t, type_t *rett) {
+//    printf("%d %s\n", t->syntax_label, t->info);
     assert(label_equal(t, Stmt));
     switch(label_of(t->son)) {
         case _Exp_: {
@@ -476,7 +498,7 @@ void stmt(tnode *t, type_t *rett) {
         case _RETURN_: {
             type_t *type = expression(tnode_sec_son(t));
             if(!type_equal(rett, type))
-                pserror(ERR_RET_MISMATCH, t->son->line,
+                pserror(ERR_RET_MISMATCH, t->line,
                         "Type mismatched for return");
             break;
         }
@@ -498,8 +520,9 @@ void stmt(tnode *t, type_t *rett) {
 
 void stmt_list(tnode *t, type_t *rett) {
     assert(label_equal(t, StmtList));
-    while(t->son) {
+    while(true) {
         stmt(t->son, rett);
+        if(!tnode_sec_son(t)) break;
         t = t->last_son;
     }
 }
@@ -507,23 +530,165 @@ void stmt_list(tnode *t, type_t *rett) {
 void args(tnode *t, func_mes *fm) {
     assert(label_equal(t, Args));
     if(!fm) func_arg_check_init(fm);
+    printf("%d\n", fm->argc);
     while(label_equal(t, Args)) {
         type_t *arg_t = expression(t->son);
         func_arg_check_go(arg_t);
         t = t->last_son;
     }
-    func_arg_check_end();
+    if(!func_arg_check_end())
+        pserror(ERR_F_PARA_MISMATCH, t->line,
+                "Inapplicable arguments for function");
+}
+
+typedef struct exp_ret {
+    type_t *type;
+    bool is_left;
+} exp_ret;
+
+static exp_ret __expression(tnode *t) {
+    assert(label_equal(t, Exp));
+    exp_ret ret, tret;
+    ret.type = NULL;
+    ret.is_left = false;
+    symbol *s;
+    switch(label_of(t->son)) {
+        case _INT_:
+            ret.type = &std_type_int;
+            break;
+        case _FLOAT_:
+            ret.type = &std_type_float;
+            break;
+        case _ID_:
+            if(label_equal(t->last_son, ID)) {
+//                printf("%s\n", id_str(t->son));
+                if((s = find_by_name_global(id_str(t->son))) &&
+                        s->is_var) {
+                    ret.is_left = true;
+                    ret.type = s->vmes->type;
+                }
+                else
+                    pserror(ERR_VARI_UNDEF, t->line,
+                            "Undefined variable \"%s\"", id_str(t->son));
+            } else {
+                if((s = find_by_name_global(id_str(t->son)))) {
+                    if(s->is_var) {
+                        pserror(ERR_FUNC_ACCESS, t->line,
+                                "\"%s\" is not a function", id_str(t->son));
+                        break;
+                    }
+                    ret.type = s->fmes->rett;
+                    if(label_equal(tnode_thi_son(t), Args))
+                        args(tnode_thi_son(t), s->fmes);
+                } else
+                    pserror(ERR_FUNC_UNDEF, t->line,
+                            "Undefined function \"%s\"", id_str(t->son));
+            }
+            break;
+        case _MINUS_:
+        case _NOT_:
+        case _LP_:
+            ret = __expression(tnode_sec_son(t));
+            ret.is_left = false;
+            break;
+        case _Exp_:
+            ret = __expression(t->son);
+            switch(label_of(tnode_sec_son(t))) {
+                case _ASSIGNOP_:
+                    if(!ret.is_left) {
+                        pserror(ERR_CAN_NOT_ASSIGN, t->son->line,
+                                "The left-hand side of an assignment must be a variable");
+                        break;
+                    }
+                    ret.is_left = false;
+                    tret = __expression(t->last_son);
+                    if(!type_equal(ret.type, tret.type)) {
+                        pserror(ERR_TYPE_NOTEQ, t->son->line,
+                                "Type mismatched for assignment");
+                        break;
+                    }
+                    break;
+                case _AND_:
+                case _OR_:
+                    tret = __expression(t->last_son);
+                    if(ret.type != &std_type_int ||
+                            tret.type != &std_type_int)
+                        pserror(ERR_OP_MISMATCH, t->son->line,
+                                "Type mismatched for operands");
+                    ret.is_left = false;
+                    break;
+                case _RELOP_:
+                case _PLUS_:
+                case _MINUS_:
+                case _STAR_:
+                case _DIV_:
+                    tret = __expression(t->last_son);
+                    if((tret.type == &std_type_int && ret.type != &std_type_int) ||
+                            (tret.type == &std_type_float && ret.type != &std_type_float))
+                        pserror(ERR_OP_MISMATCH, t->son->line,
+                                "Type mismatched for operands");
+                    ret.is_left = false;
+                    break;
+                case _LB_: {
+                    tnode *fexp = t->son;
+                    if(!type_array(ret.type))
+                        goto LB_FAIL;
+                    tret = __expression(tnode_thi_son(t));
+                    if(tret.type != &std_type_int) {
+                        pserror(ERR_A_OFF_NOT_INT, fexp->line,
+                                "Not an integer in []");
+                    }
+                    ret.type = ret.type->ta;
+                    ret.is_left = true;
+                    break;
+LB_FAIL:
+                    pserror(ERR_ARRAY_ACCESS, fexp->line,
+                            "Not an array");
+                    ret.type = NULL;
+                    ret.is_left = false;
+                }
+                    break;
+                case _DOT_: {
+                    if(!type_struct(ret.type)) {
+                        pserror(ERR_DOT_ON_NOSTR, t->son->line,
+                                "Illegal use of \".\"");
+                        goto DOT_FAIL;
+                    }
+                    if(!domain_of_struct(ret.type, id_str(t->last_son), &ret.type)) {
+                        pserror(ERR_DOMAIN_FAIL, t->son->line,
+                                "Non-existent field \"%s\"", id_str(t->last_son));
+                        goto DOT_FAIL;
+                    }
+                    ret.is_left = true;
+                    break;
+DOT_FAIL:
+                    ret.type = NULL;
+                    ret.is_left = false;
+                }
+                    break;
+                default: break;
+            }
+            break;
+        default: break;
+    }
+    return ret;
 }
 
 type_t* expression(tnode *t) {
-
+    return __expression(t).type;
 }
 
 void compst(tnode *t, type_t *rett, func_mes *fm) {
     push_sstack();
     export_func_arg(fm);
-    def_list_in_func(tnode_sec_son(t));
-    stmt(tnode_thi_son(t), rett);
+    if(t->snum == 3) {
+        if(label_equal(tnode_sec_son(t), DefList))
+            def_list_in_func(tnode_sec_son(t));
+        else stmt_list(tnode_sec_son(t), rett);
+    } else if(t->snum == 4) {
+        def_list_in_func(tnode_sec_son(t));
+        stmt_list(tnode_thi_son(t), rett);
+    }
     pop_sstack();
 }
 
@@ -532,8 +697,10 @@ void ext_def(tnode *t) {
     switch(label_of(tnode_sec_son(t))) {
         case _ExtDecList_:
             ext_dec_list(tnode_sec_son(t), type);
+            break;
         case _FunDec_:
-            fun_dec(t, type);
+            fun_dec(tnode_sec_son(t), type);
+            break;
         case _SEMI_:
         default:
             break;
@@ -541,14 +708,16 @@ void ext_def(tnode *t) {
 }
 
 void ext_def_list(tnode *t) {
-    while(!t->son) {
+    while(true) {
         ext_def(t->son);
+        if(!tnode_sec_son(t)) break;
         t = t->last_son;
     }
 }
 
 void main_parse(tnode *tp) {
     assert(label_equal(tp, Program));
+    init_parse();
     ext_def_list(tp->son);
 }
 

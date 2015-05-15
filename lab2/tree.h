@@ -37,8 +37,6 @@ struct tnode {
 
 typedef struct tnode tnode;
 
-#define TERMINALS_LINE -1
-
 tnode* new_node(char *, int);
 void link_node(tnode *, tnode *);
 

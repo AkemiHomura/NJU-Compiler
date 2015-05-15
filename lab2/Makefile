@@ -19,7 +19,9 @@ lex.yy.c: lexical.l syntax.tab.h
 syntax-debug: syntax.y
 	bison -d -v syntax.y
 
-.PHONY: clean test clean-respreserved
+single_file_test: parser
+	./parser test.cmm
+.PHONY: clean test clean-respreserved 
 test:
 	touch test.out
 	rm test.out
