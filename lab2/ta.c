@@ -292,6 +292,35 @@ bool func_arg_check(func_mes *fm, type_t *type, int mode) { static symbol *arg_s
     }
 }
 
+void func_def_check() {
+    list_head *p, *q;
+    list_foreach(p, &sstack_bottom->hash_list) {
+        hash_t *ht = list_entry(p, hash_t, hash_list);
+        list_foreach(q, &ht->symbol_list) {
+            symbol *s = list_entry(q, symbol, list);
+            if(!s->is_var && !s->fmes->vis_tag) {
+                pserror(ERR_FUNC_NODEF, s->line,
+                        "Undefined function \"%s\"", s->name);
+            }
+        }
+    }
+}
+
+bool func_equal(func_mes *a, func_mes *b) {
+    if(!type_equal(a->rett, b->rett)) return false;
+    if(a->argc != b->argc) return false;
+    list_head *p, *q;
+    symbol *s, *t;
+    for(p = a->argv_list.next, q = b->argv_list.next;
+            p != &a->argv_list; p = p->next, q = q->next) {
+        s = list_entry(p, symbol, list);
+        t = list_entry(q, symbol, list);
+        if(!type_equal(s->vmes->type, t->vmes->type))
+            return false;
+    }
+    return true;
+}
+
 
 /* parse part;
  *
@@ -357,13 +386,32 @@ void fun_dec(tnode *t, type_t *rett) {
             pserror(ERR_FUNC_REDEF, t->line,
                     "Redefined function \"%s\"", id_str(id));
             if(!fs->is_var) {
-                redef = true;
-                goto ____def;
+                if(label_equal(tnode_thi_son(t), CompSt)) {
+                    redef = true;
+                    goto ____def;
+                } else goto ____dec;
             }
         }
-        else if(!fs->is_var)
+        else {
+____dec:
             fm = fs->fmes;
-
+            tnode *vl = tnode_thi_son(t);
+            func_arg_check_init(fm);
+            if(label_equal(vl, VarList)) {
+                tnode *pd = vl->son;
+                while(label_equal(pd, ParamDec)) {
+                    type_t *argt = specifier(pd->son);
+                    if(argt == NULL || !func_arg_check_go(argt)) {
+                        pserror(ERR_FUNC_REDEC, t->line,
+                                "Inconsistent declaration of function \"%s\"",
+                                id_str(id));
+                        break;
+                    }
+                    vl = vl->last_son;
+                    pd = vl->son;
+                }
+            }
+        }
     } else {
 ____def:
         fm = new_func(rett);
@@ -727,6 +775,7 @@ void main_parse(tnode *tp) {
     assert(label_equal(tp, Program));
     init_parse();
     ext_def_list(tp->son);
+    func_def_check();
 }
 
 

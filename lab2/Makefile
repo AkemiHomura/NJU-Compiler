@@ -23,11 +23,9 @@ single_file_test: parser
 	./parser test.cmm
 
 test: parser
-	touch test.out
-	rm test.out
-	touch test.out
 	for t in $(shell find test/*); \
 		do 	echo "$$t" ; \
+		cat "$$t"; \
 		./parser "$$t" ; \
 		echo "\n" ; \
 		done
