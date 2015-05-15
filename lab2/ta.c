@@ -1,4 +1,4 @@
-#include "_ta.h"
+#include "ta.h"
 #include "tree.h"
 #include <assert.h>
 #include <stdio.h>

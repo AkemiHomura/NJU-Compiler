@@ -5,4 +5,5 @@ parser
 .ycm*
 .before/*
 test/
+test*
 
