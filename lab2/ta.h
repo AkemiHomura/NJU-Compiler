@@ -132,6 +132,8 @@ void export_func_arg_to_sstack(func_mes *fm, sstack *sst);
 #define export_func_arg(fm) export_func_arg_to_sstack(fm, sstack_top)
 void export_type_struct(type_t *type);
 type_t* get_struct(char *sname);
+type_t* get_struct_in_sstack(char *sname, sstack *sst);
+#define get_struct_in_sstack_top(sname) get_struct_in_sstack(sname, sstack_top)
 bool domain_of_struct(type_t *st, char *dname, type_t **dtype);
 bool func_arg_dup(func_mes *fm, char *aname);
 bool type_equal(type_t *a, type_t *b);

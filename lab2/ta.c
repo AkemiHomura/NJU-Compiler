@@ -204,15 +204,22 @@ void export_type_struct(type_t *type) {
 }
 
 type_t *get_struct(char *sname) {
-    list_head *p;
     type_t *ret;
     sstack *sst;
     for(sst = sstack_top; ; sst = sstack_down(sst)) {
-        list_foreach(p, &sst->struct_list) {
-            ret = list_entry(p, type_t, struct_list);
-            if(strcmp(ret->name, sname) == 0) return ret;
-        }
+        if((ret = get_struct_in_sstack(sname ,sst)))
+            return ret;
         if(sst == sstack_bottom) break;
+    }
+    return NULL;
+}
+
+type_t *get_struct_in_sstack(char *sname, sstack *sst) {
+    list_head *p;
+    type_t *ret;
+    list_foreach(p, &sst->struct_list) {
+        ret = list_entry(p, type_t, struct_list);
+        if(strcmp(ret->name, sname) == 0) return ret;
     }
     return NULL;
 }
@@ -343,10 +350,8 @@ type_t* struct_specifier(tnode *t) {
             st = new_type_struct("$");
         } else {
             assert(label_equal(id, ID));
-            if(!get_struct(id_str(id))) {
-                if(find_by_name_global(id_str(id)))
-                    goto Duplicated;
-                else st = new_type_struct(id_str(id));
+            if(!get_struct_in_sstack_top(id_str(id))) {
+                st = new_type_struct(id_str(id));
             } else goto Duplicated;
         }
         export_type_struct(st);
