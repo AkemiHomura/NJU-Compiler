@@ -350,17 +350,23 @@ void fun_dec(tnode *t, type_t *rett) {
     tnode *id = t->son;
     symbol *fs = NULL;
     func_mes *fm = NULL;
+    bool redef = false;
     fs = find_by_name_global(id_str(id));
     if(fs) {
-        if(fs->is_var || (!fs->is_var && fs->fmes->vis_tag))
+        if(fs->is_var || (!fs->is_var && fs->fmes->vis_tag)) {
             pserror(ERR_FUNC_REDEF, t->line,
                     "Redefined function \"%s\"", id_str(id));
+            if(!fs->is_var) {
+                redef = true;
+                goto ____def;
+            }
+        }
         else if(!fs->is_var)
             fm = fs->fmes;
 
     } else {
+____def:
         fm = new_func(rett);
-        fs = new_symbol(id_str(id), false, t->line, fm);
         tnode *vl = tnode_thi_son(t);
         if(label_equal(vl, VarList)) {
             tnode *pd = vl->son;
@@ -378,7 +384,10 @@ void fun_dec(tnode *t, type_t *rett) {
                 pd = vl->son;
             }
         }
-        export_symbol(fs);
+        if(!redef) {
+            fs = new_symbol(id_str(id), false, t->line, fm);
+            export_symbol(fs);
+        }
     }
     if(label_equal(t->brother, CompSt)) {
         fs->fmes->vis_tag = 1;
@@ -530,7 +539,6 @@ void stmt_list(tnode *t, type_t *rett) {
 void args(tnode *t, func_mes *fm) {
     assert(label_equal(t, Args));
     if(!fm) func_arg_check_init(fm);
-    printf("%d\n", fm->argc);
     while(label_equal(t, Args)) {
         type_t *arg_t = expression(t->son);
         func_arg_check_go(arg_t);

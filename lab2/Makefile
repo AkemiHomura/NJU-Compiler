@@ -4,7 +4,7 @@ LEXC_AND_YACCC=$(shell find -name "lex.yy.c" -o -name "syntax.tab.*")
 YACC_DEBUG_OUT=$(shell find -name "syntax.output")
 RES=$(shell find -name "parser")
 
-parser: lex.yy.c syntax.tab.c main.c tree.c ta.c
+parser: lex.yy.c syntax.tab.c main.c tree.c ta.c 
 	$(CC) main.c syntax.tab.c tree.c ta.c -ly $(CFLAGS) parser
 
 debug: lex.yy.c syntax.tab.c main.c
@@ -21,17 +21,18 @@ syntax-debug: syntax.y
 
 single_file_test: parser
 	./parser test.cmm
-.PHONY: clean test clean-respreserved 
-test:
+
+test: parser
 	touch test.out
 	rm test.out
 	touch test.out
 	for t in $(shell find test/*); \
-		do 	echo "$$t" >> test.out; \
-			./parser "$$t" >> test.out; \
-			echo "\n" >> test.out; \
+		do 	echo "$$t" ; \
+		./parser "$$t" ; \
+		echo "\n" ; \
 		done
 
+.PHONY: clean clean-respreserved 
 clean: clean-respreserved
 	rm $(RES) 
 
