@@ -400,7 +400,7 @@ static void gen_func_arg(tnode *vl, func_mes *fm) {
     }
 }
 
-static void check_func_dec(tnode *vl, symbol *fs) {
+static bool check_func_dec(tnode *vl, symbol *fs) {
     func_mes *fm = fs->fmes;
     func_arg_check_init(fm);
     if(label_equal(vl, VarList)) {
@@ -411,12 +411,13 @@ static void check_func_dec(tnode *vl, symbol *fs) {
                 pserror(ERR_FUNC_REDEC, fs->line,
                         "Inconsistent declaration of function \"%s\"",
                         fs->name);
-                break;
+                return false;
             }
             vl = vl->last_son;
             pd = vl->son;
         }
     }
+    return func_arg_check_end();
 }
 
 void fun_dec(tnode *t, type_t *rett) {
@@ -432,9 +433,10 @@ void fun_dec(tnode *t, type_t *rett) {
         if(fs->is_var || fs->fmes->vis_tag) {
             pserror(ERR_FUNC_REDEF, t->line,
                     "Redefined function \"%s\"", id_str(id));
-            redef = true;
         }
-        if(!fs->is_var) check_func_dec(vl, fs);
+        if(!fs->is_var)
+            if(check_func_dec(vl, fs) && _def)
+                fs->fmes->vis_tag = 1;
     }
     if(_def) {
         fm = new_func(rett);
@@ -442,8 +444,8 @@ void fun_dec(tnode *t, type_t *rett) {
         if(!fs) {
             fs = new_symbol(id_str(id), false, t->line, fm);
             export_symbol(fs);
+            fs->fmes->vis_tag = 1;
         }
-        fs->fmes->vis_tag = 1;
         compst(t->brother, rett, fm);
     } else {
         if(!fs){
