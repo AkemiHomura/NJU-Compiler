@@ -403,11 +403,14 @@ static void gen_func_arg(tnode *vl, func_mes *fm) {
 static bool check_func_dec(tnode *vl, symbol *fs) {
     func_mes *fm = fs->fmes;
     func_arg_check_init(fm);
+    symbol *args = NULL;
     if(label_equal(vl, VarList)) {
         tnode *pd = vl->son;
         while(label_equal(pd, ParamDec)) {
             type_t *argt = specifier(pd->son);
-            if(argt == NULL || !func_arg_check_go(argt)) {
+            if(argt != NULL)
+                args = var_dec(pd->last_son, argt);
+            if(argt == NULL || !func_arg_check_go(args->vmes->type)) {
                 pserror(ERR_FUNC_REDEC, fs->line,
                         "Inconsistent declaration of function \"%s\"",
                         fs->name);
@@ -431,8 +434,9 @@ void fun_dec(tnode *t, type_t *rett) {
     if(label_equal(t->brother, CompSt)) _def = true;
     if(fs) {
         if(fs->is_var || fs->fmes->vis_tag) {
-            pserror(ERR_FUNC_REDEF, t->line,
-                    "Redefined function \"%s\"", id_str(id));
+            if(_def)
+                pserror(ERR_FUNC_REDEF, t->line,
+                        "Redefined function \"%s\"", id_str(id));
         }
         if(!fs->is_var)
             if(check_func_dec(vl, fs) && _def)
@@ -719,7 +723,7 @@ LB_FAIL:
                 }
                     break;
                 case _DOT_: {
-                    if(!type_struct(ret.type)) {
+                    if(!ret.type || !type_struct(ret.type)) {
                         pserror(ERR_DOT_ON_NOSTR, t->son->line,
                                 "Illegal use of \".\"");
                         goto DOT_FAIL;

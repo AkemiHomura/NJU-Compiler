@@ -31,10 +31,10 @@ struct type_t {
 };
 typedef struct type_t type_t;
 #define tid_of(x) ((x)->tid)
-#define type_int(x) ((x)->tid == _int_)
-#define type_float(x) ((x)->tid == _float_)
-#define type_struct(x) ((x)->tid == _struct_)
-#define type_array(x) ((x)->tid == _array_)
+#define type_int(x) ((x) != NULL && (x)->tid == _int_)
+#define type_float(x) ((x) != NULL && (x)->tid == _float_)
+#define type_struct(x) ((x) != NULL && (x)->tid == _struct_)
+#define type_array(x) ((x) != NULL && (x)->tid == _array_)
 
 #define type_array_size(x) ((x)->size)
 #define type_array_next(x) ((x)->ta)
