@@ -276,7 +276,9 @@ bool type_equal(type_t *a, type_t *b) {
     } else return true;
 }
 
-bool func_arg_check(func_mes *fm, type_t *type, int mode) { static symbol *arg_s; static int argc, argct;
+bool func_arg_check(func_mes *fm, type_t *type, int mode) {
+    static symbol *arg_s;
+    static int argc, argct;
     switch(mode) {
         case FUNC_ARG_CHECK_INIT:
             argc = 0;
@@ -379,72 +381,83 @@ type_t* specifier(tnode *t) {
     return ret;
 }
 
+void gen_func_arg(tnode *vl, func_mes *fm) {
+    if(label_equal(vl, VarList)) {
+        tnode *pd = vl->son;
+        symbol *args = NULL;
+        while(label_equal(pd, ParamDec)) {
+            type_t *argt = specifier(pd->son);
+            if(argt != NULL)
+                args = var_dec(pd->last_son, argt);
+            if(func_arg_dup(fm, args->name))
+                pserror(ERR_VARI_REDEF, pd->line,
+                        "Redefined varible \"%s\"", args->name);
+            else
+                export_symbol_to_func(args, fm);
+            vl = vl->last_son;
+            pd = vl->son;
+        }
+    }
+}
+
+void check_func_dec(tnode *vl, symbol *fs) {
+    func_mes *fm = fs->fmes;
+    func_arg_check_init(fm);
+    if(label_equal(vl, VarList)) {
+        tnode *pd = vl->son;
+        while(label_equal(pd, ParamDec)) {
+            type_t *argt = specifier(pd->son);
+            if(argt == NULL || !func_arg_check_go(argt)) {
+                pserror(ERR_FUNC_REDEC, fs->line,
+                        "Inconsistent declaration of function \"%s\"",
+                        fs->name);
+                break;
+            }
+            vl = vl->last_son;
+            pd = vl->son;
+        }
+    }
+}
+
 void fun_dec(tnode *t, type_t *rett) {
     assert(label_equal(t, FunDec));
     tnode *id = t->son;
     symbol *fs = NULL;
     func_mes *fm = NULL;
-    bool redef = false;
+    bool redef = false , _def = false;
     fs = find_by_name_global(id_str(id));
-    if(fs) {
-        if(fs->is_var || (!fs->is_var && fs->fmes->vis_tag)) {
-            pserror(ERR_FUNC_REDEF, t->line,
-                    "Redefined function \"%s\"", id_str(id));
-            if(!fs->is_var) {
-                if(label_equal(tnode_thi_son(t), CompSt)) {
-                    redef = true;
-                    goto ____def;
-                } else goto ____dec;
+    tnode *vl = tnode_thi_son(t);
+    if(label_equal(t->brother, CompSt)) _def = true;
+    if(_def) {
+        if(fs) {
+            if(fs->is_var || fs->fmes->vis_tag) {
+                pserror(ERR_FUNC_REDEF, t->line,
+                        "Redefined function \"%s\"", id_str(id));
+                redef = true;
             }
+            if(!fs->is_var) check_func_dec(vl, fs);
         }
-        else {
-____dec:
-            fm = fs->fmes;
-            tnode *vl = tnode_thi_son(t);
-            func_arg_check_init(fm);
-            if(label_equal(vl, VarList)) {
-                tnode *pd = vl->son;
-                while(label_equal(pd, ParamDec)) {
-                    type_t *argt = specifier(pd->son);
-                    if(argt == NULL || !func_arg_check_go(argt)) {
-                        pserror(ERR_FUNC_REDEC, t->line,
-                                "Inconsistent declaration of function \"%s\"",
-                                id_str(id));
-                        break;
-                    }
-                    vl = vl->last_son;
-                    pd = vl->son;
-                }
-            }
-        }
-    } else {
-____def:
         fm = new_func(rett);
-        tnode *vl = tnode_thi_son(t);
-        if(label_equal(vl, VarList)) {
-            tnode *pd = vl->son;
-            symbol *args = NULL;
-            while(label_equal(pd, ParamDec)) {
-                type_t *argt = specifier(pd->son);
-                if(argt != NULL)
-                    args = var_dec(pd->last_son, argt);
-                if(func_arg_dup(fm, args->name))
-                    pserror(ERR_VARI_REDEF, pd->line,
-                            "Redefined varible \"%s\"", args->name);
-                else
-                    export_symbol_to_func(args, fm);
-                vl = vl->last_son;
-                pd = vl->son;
-            }
-        }
-        if(!redef) {
+        gen_func_arg(vl, fm);
+        if(!fs) {
             fs = new_symbol(id_str(id), false, t->line, fm);
             export_symbol(fs);
         }
-    }
-    if(label_equal(t->brother, CompSt)) {
         fs->fmes->vis_tag = 1;
         compst(t->brother, rett, fm);
+    } else {
+        if(fs) {
+            if(fs->is_var || fs->fmes->vis_tag) {
+                pserror(ERR_FUNC_REDEF, t->line,
+                        "Redefined function \"%s\"", id_str(id));
+            }
+            if(!fs->is_var) check_func_dec(vl, fs);
+        } else {
+            fm = new_func(rett);
+            gen_func_arg(vl ,fm);
+            fs = new_symbol(id_str(id), false, t->line, fm);
+            export_symbol(fs);
+        }
     }
 }
 
@@ -591,7 +604,7 @@ void stmt_list(tnode *t, type_t *rett) {
 
 void args(tnode *t, func_mes *fm) {
     assert(label_equal(t, Args));
-    if(!fm) func_arg_check_init(fm);
+    if(fm) func_arg_check_init(fm);
     while(label_equal(t, Args)) {
         type_t *arg_t = expression(t->son);
         func_arg_check_go(arg_t);
@@ -684,8 +697,8 @@ static exp_ret __expression(tnode *t) {
                 case _STAR_:
                 case _DIV_:
                     tret = __expression(t->last_son);
-                    if((tret.type == &std_type_int && ret.type != &std_type_int) ||
-                            (tret.type == &std_type_float && ret.type != &std_type_float))
+                    if(tret.type != ret.type || (ret.type != &std_type_int
+                            && ret.type != &std_type_float))
                         pserror(ERR_OP_MISMATCH, t->son->line,
                                 "Type mismatched for operands");
                     ret.is_left = false;
