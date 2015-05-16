@@ -182,6 +182,7 @@ void ext_def(tnode *t);
 void ext_def_list(tnode *t);
 void main_parse(tnode *tp);
 
+#ifdef DEBUG
 #define xx \
     printf("xx\n");
 #endif
@@ -204,6 +205,7 @@ void sprint_sstack(sstack *sst) {
         printf("sstack %s\n", s->name);
     }
 }
+#endif
 
 /* no name struct named "$"
  * no name function named "$"

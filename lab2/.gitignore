@@ -6,4 +6,6 @@ parser
 .before/*
 test/
 test*
+*.pdf
+*.tar*
 
