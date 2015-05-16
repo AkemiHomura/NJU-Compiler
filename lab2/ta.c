@@ -381,7 +381,7 @@ type_t* specifier(tnode *t) {
     return ret;
 }
 
-void gen_func_arg(tnode *vl, func_mes *fm) {
+static void gen_func_arg(tnode *vl, func_mes *fm) {
     if(label_equal(vl, VarList)) {
         tnode *pd = vl->son;
         symbol *args = NULL;
@@ -400,7 +400,7 @@ void gen_func_arg(tnode *vl, func_mes *fm) {
     }
 }
 
-void check_func_dec(tnode *vl, symbol *fs) {
+static void check_func_dec(tnode *vl, symbol *fs) {
     func_mes *fm = fs->fmes;
     func_arg_check_init(fm);
     if(label_equal(vl, VarList)) {
@@ -428,15 +428,15 @@ void fun_dec(tnode *t, type_t *rett) {
     fs = find_by_name_global(id_str(id));
     tnode *vl = tnode_thi_son(t);
     if(label_equal(t->brother, CompSt)) _def = true;
-    if(_def) {
-        if(fs) {
-            if(fs->is_var || fs->fmes->vis_tag) {
-                pserror(ERR_FUNC_REDEF, t->line,
-                        "Redefined function \"%s\"", id_str(id));
-                redef = true;
-            }
-            if(!fs->is_var) check_func_dec(vl, fs);
+    if(fs) {
+        if(fs->is_var || fs->fmes->vis_tag) {
+            pserror(ERR_FUNC_REDEF, t->line,
+                    "Redefined function \"%s\"", id_str(id));
+            redef = true;
         }
+        if(!fs->is_var) check_func_dec(vl, fs);
+    }
+    if(_def) {
         fm = new_func(rett);
         gen_func_arg(vl, fm);
         if(!fs) {
@@ -446,13 +446,7 @@ void fun_dec(tnode *t, type_t *rett) {
         fs->fmes->vis_tag = 1;
         compst(t->brother, rett, fm);
     } else {
-        if(fs) {
-            if(fs->is_var || fs->fmes->vis_tag) {
-                pserror(ERR_FUNC_REDEF, t->line,
-                        "Redefined function \"%s\"", id_str(id));
-            }
-            if(!fs->is_var) check_func_dec(vl, fs);
-        } else {
+        if(!fs){
             fm = new_func(rett);
             gen_func_arg(vl ,fm);
             fs = new_symbol(id_str(id), false, t->line, fm);
