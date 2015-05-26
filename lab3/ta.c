@@ -9,18 +9,19 @@
 type_t std_type_int = {_int_, NULL, NULL, NULL};
 type_t std_type_float = {_float_, NULL, NULL, NULL};
 
+symbol std_read, std_write;
 list_head sstack_root;
 
 void pserror(int err, int line, char *errinfo,
         ...) {
-    fprintf(stderr, "Error type %d at line %d: ", err,
+    fprintf(stdout, "Error type %d at line %d: ", err,
             line);
     char *format, *info;
     va_list arg_ptr;
     va_start(arg_ptr, errinfo);
-    vfprintf(stderr, errinfo, arg_ptr);
+    vfprintf(stdout, errinfo, arg_ptr);
     va_end(arg_ptr);
-    fprintf(stderr, ".\n");
+    fprintf(stdout, ".\n");
 }
 
 static unsigned hash_pjw(char *name) {
@@ -35,6 +36,23 @@ static unsigned hash_pjw(char *name) {
 static void init_parse() {
     list_init(&sstack_root);
     push_sstack();
+
+    std_read.name = "read";
+    std_read.is_var = false;
+    std_read.line = 0;
+    std_read.fmes = new_func(&std_type_int);
+    std_read.fmes->vis_tag = 1;
+    export_symbol(&std_read);
+
+    std_write.name = "write";
+    std_write.is_var = false;
+    std_write.line = 0;
+    std_write.fmes = new_func(&std_type_int);
+    std_write.fmes->vis_tag = 1;
+    symbol *write_para = new_symbol("a", true, 0,
+            new_var(&std_type_int));
+    export_symbol_to_func(write_para, std_write.fmes);
+    export_symbol(&std_write);
 }
 
 func_mes* new_func(type_t *rett) {
@@ -357,7 +375,15 @@ type_t* struct_specifier(tnode *t) {
             } else goto Duplicated;
         }
         export_type_struct(st);
-        def_list_in_struct(tnode_for_son(t), st);
+        if(label_equal(opt_tag, OptTag)) {
+            if(label_equal(tnode_for_son(t), DefList))
+                def_list_in_struct(tnode_for_son(t), st);
+
+        }
+        else{
+            if(label_equal(tnode_thi_son(t), DefList))
+                def_list_in_struct(tnode_thi_son(t), st);
+        }
         return st;
 Duplicated:
         pserror(ERR_STR_REDEF, id->line,
@@ -607,7 +633,11 @@ void args(tnode *t, func_mes *fm) {
     if(fm) func_arg_check_init(fm);
     while(label_equal(t, Args)) {
         type_t *arg_t = expression(t->son);
-        func_arg_check_go(arg_t);
+        if(!func_arg_check_go(arg_t)) {
+            pserror(ERR_F_PARA_MISMATCH, t->line,
+                    "Inapplicable arguments for function");
+            return;
+        }
         t = t->last_son;
     }
     if(!func_arg_check_end())
@@ -754,13 +784,14 @@ type_t* expression(tnode *t) {
 
 void compst(tnode *t, type_t *rett, func_mes *fm) {
     push_sstack();
-    export_func_arg(fm);
+    if(fm) export_func_arg(fm);
     if(t->snum == 3) {
         if(label_equal(tnode_sec_son(t), DefList))
             def_list_in_func(tnode_sec_son(t));
         else stmt_list(tnode_sec_son(t), rett);
     } else if(t->snum == 4) {
-        def_list_in_func(tnode_sec_son(t));
+        if(label_equal(tnode_sec_son(t), DefList))
+            def_list_in_func(tnode_sec_son(t));
         stmt_list(tnode_thi_son(t), rett);
     }
     pop_sstack();

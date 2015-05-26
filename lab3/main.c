@@ -7,6 +7,7 @@ extern int err;
 
 void print_tree(tnode *);
 void main_parse(tnode *);
+void ir_gen(tnode *);
 
 int main(int argc, char** argv) {
     if(argc <= 1) return 1;
@@ -22,8 +23,11 @@ int main(int argc, char** argv) {
 #endif
     yyparse();
     if(!err) {
-        //print_tree(root);
+#ifdef DEBUG
+        print_tree(root);
+#endif
         main_parse(root);
+        ir_gen(root);
     }
     return 0;
 }

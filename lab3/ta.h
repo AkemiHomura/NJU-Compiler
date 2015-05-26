@@ -187,7 +187,7 @@ void main_parse(tnode *tp);
     printf("xx\n");
 #endif
 
-void print_sstack(sstack *sst) {
+static void print_sstack(sstack *sst) {
     list_head *p, *q;
     list_foreach(p, &sst->hash_list) {
         hash_t *ht = list_entry(p, hash_t, hash_list);
@@ -198,7 +198,7 @@ void print_sstack(sstack *sst) {
         printf("one hash\n");
     }
 }
-void sprint_sstack(sstack *sst) {
+static void sprint_sstack(sstack *sst) {
     list_head *p;
     list_foreach(p, &sst->struct_list) {
         type_t *s = list_entry(p, type_t, struct_list);
