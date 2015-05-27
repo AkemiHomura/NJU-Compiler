@@ -7,8 +7,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-type_t std_type_int = {_int_, NULL, NULL, NULL};
-type_t std_type_float = {_float_, NULL, NULL, NULL};
+type_t std_type_int = {_int_, NULL, NULL, NULL, .tsize = 4};
+type_t std_type_float = {_float_, NULL, NULL, NULL, .tsize = 4};
 
 symbol std_read = {.name = "read", .is_var = false, .line = 0},
        std_write = {.name = "write", .is_var = false, .line = 0};
@@ -81,6 +81,7 @@ type_t* new_type_struct(char *name) {
     type_t *t = (type_t *)malloc(sizeof(type_t));
     tid_of(t) = _struct_;
     t->name = name;
+    t->tsize = 0;
     list_init(&t->struct_domain_symbol);
     list_init(&t->struct_list);
     return t;
@@ -90,6 +91,7 @@ type_t* new_type_array(int size) {
     type_t *t = (type_t *)malloc(sizeof(type_t));
     tid_of(t) = _array_;
     t->size = size;
+    t->tsize = 0;
     return t;
 }
 
@@ -200,6 +202,7 @@ void export_symbol_to_func(symbol *s, func_mes *fm) {
 
 void export_symbol_to_struct(symbol *s, type_t *type) {
     assert(type_struct(type));
+    type->tsize += s->vmes->type->tsize;
     list_add_before(&type->struct_domain_symbol, &s->list);
 }
 
@@ -417,6 +420,8 @@ static void gen_func_arg(tnode *vl, func_mes *fm) {
                         "Redefined varible \"%s\"", args->name);
             else
                 export_symbol_to_func(args, fm);
+            args->op = new_op_var();
+            export_code(new(InterCode, IR_PARAM, .u.one.op = args->op));
             vl = vl->last_son;
             pd = vl->son;
         }
@@ -467,12 +472,14 @@ void fun_dec(tnode *t, type_t *rett) {
     }
     if(_def) {
         fm = new_func(rett);
-        gen_func_arg(vl, fm);
         if(!fs) {
             fs = new_symbol(id_str(id), false, t->line, fm);
             export_symbol(fs);
             fs->fmes->vis_tag = 1;
         }
+        export_code(new(InterCode, IR_FUNCTION, .u.one.op =
+                    new_op_func(fs->name)));
+        gen_func_arg(vl, fm);
         compst(t->brother, rett, fm);
     } else {
         if(!fs){
@@ -488,6 +495,7 @@ static type_t* var_dec_array(tnode *t, type_t *type) {
     assert(label_equal(t, VarDec) && label_equal(t->son, VarDec));
     type_t *at = new_type_array(tnode_thi_son(t)->intval);
     at->ta = type;
+    at->tsize = at->ta->tsize * at->size;
     if(label_equal(t->son->son, VarDec)) at = var_dec_array(t->son, at);
     return at;
 }
@@ -505,7 +513,6 @@ symbol *var_dec(tnode *t, type_t *type) {
         while(!label_equal(id, ID)) id = id->son;
     }
     s = new_symbol(id_str(id), true, t->son->line, vm);
-
     return s;
 }
 
@@ -536,8 +543,14 @@ void dec(tnode *t, type_t *type, type_t *st) {
         }
         else export_symbol(s);
 
+        s->op = new_op_var();
+        if(type_array(s->vmes->type) || type_struct(s->vmes->type)) {
+            export_code(new(InterCode, IR_DEC, .u.one.op = s->op));
+        }
+
         if(label_equal(t->last_son, Exp)) {
             type_t *et = expression(t->last_son);
+            translate_exp(t->last_son, s->op);
             if(!type_equal(et, s->vmes->type))
                 pserror(ERR_TYPE_NOTEQ, s->line,
                         "Type mismatched for assignment");
@@ -837,9 +850,11 @@ void ext_def_list(tnode *t) {
     }
 }
 
+void init_irgen();
 void main_parse(tnode *tp) {
     assert(label_equal(tp, Program));
     init_parse();
+    init_irgen();
     ext_def_list(tp->son);
     func_def_check();
 }

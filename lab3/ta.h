@@ -29,6 +29,7 @@ struct type_t {
             struct type_t *ta; // for array
         };
     };
+    int tsize;
 };
 typedef struct type_t type_t;
 #define tid_of(x) ((x)->tid)

@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include "syntax.tab.h"
 #include "tree.h"
+#include "irgen.h"
 
 extern tnode* root;
 extern int err;
+
 
 void print_tree(tnode *);
 void main_parse(tnode *);
@@ -25,7 +27,10 @@ int main(int argc, char** argv) {
 #ifdef DEBUG
         print_tree(root);
 #endif
+        FILE *fp = fopen("./test.ir", "w");
         main_parse(root);
+        print_code(&code, stdout);
+        print_code(&code, fp);
     }
     return 0;
 }

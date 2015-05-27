@@ -4,7 +4,7 @@
 #include "tree.h"
 #include <stdio.h>
 
-#define new(type, ...) (type *)({ \
+#define new(type, ...) ({ \
     type *__ = (type *)malloc(sizeof(type)); \
     *__ = (type){__VA_ARGS__}; \
     __; \
@@ -14,7 +14,8 @@ extern list_head code;
 typedef enum {
     IR_ASSIGN, IR_ADD, IR_SUB, IR_MUL, IR_DIV, IR_RETURN,
     IR_LABEL, IR_GOTO, IR_IFGOTO, IR_READ, IR_WRITE, IR_CALL,
-    IR_ARG, IR_FUNCTION, IR_PARAM, IR_DEC, IR_RIGHTAT
+    IR_ARG, IR_FUNCTION, IR_PARAM, IR_DEC, IR_RIGHTAT, IR_LEFTSTAR,
+    IR_RIGHTSTAR
 } ir_kind;
 
 typedef enum {
@@ -46,7 +47,7 @@ struct InterCode {
     union {
         /* return, label, goto, read, write, arg, function, param */
         struct { Operand *op; } one;
-        /* assign, call */
+        /* assign, call, leftstar, rightstart, rightat */
         struct { Operand *left, *right; } assign;
         /* add, sub, mul, div */
         struct { Operand *result, *op1, *op2; } binop;
@@ -70,7 +71,6 @@ Operand* new_op_vaddr(Operand *);
 Operand* new_op_tvaddr(Operand *);
 InterCode* new_ic(ir_kind);
 
-static void export_args(Operand *arg) {}
 void export_code(InterCode *c);
 void delete_code(InterCode *c);
 void print_code(list_head *code, FILE *fp);

@@ -3,4 +3,5 @@ test/
 *.yy.c
 *.tab.c
 *.pdf
+*.ycm*
 
