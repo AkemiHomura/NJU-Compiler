@@ -3,6 +3,7 @@
     #include <stdlib.h>
     #include <string.h>
     #include "tree.h"
+    #include "irgen.h"
 
     extern int err;
     int yycolumn = 1;
@@ -73,7 +74,19 @@ NBLANK  [^\n\f\v\t\r ]
     extern_tnode(ASSIGNOP)
     return ASSIGNOP; printf("ASSIGNOP\n");}
 {RELOP} {
-    extern_tnode(RELOP)
+    tnode *p = new_node("RELOP", yylineno); 
+    p->syntax_label = _RELOP_; 
+    yylval.type_tnode_ptr = p; 
+    if(yytext[0] == '=') p->rk = EQ;
+    else if(yytext[0] == '!') p->rk = NE;
+    else if(yytext[0] == '>') {
+        if(yytext[1] == '=') p->rk = LE;
+        else p->rk = LT;
+    }
+    else if(yytext[0] == '<') {
+        if(yytext[1] == '=') p->rk = GE;
+        else p->rk = GT;
+    }
     return RELOP; printf("RELOP\n");}
 {PLUS}  {
     extern_tnode(PLUS)

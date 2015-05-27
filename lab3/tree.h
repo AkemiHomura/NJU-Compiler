@@ -18,6 +18,10 @@ enum syntax_label_group {
 };
 typedef enum syntax_label_group syntax_label_group;
 
+typedef enum {
+    EQ, LT, LE, GT, GE, NE
+} relop_kind;
+
 struct tnode {
     char *info;
     int syntax_label;
@@ -26,6 +30,7 @@ struct tnode {
         int intval;
         double floval;
         char *strval;
+        relop_kind rk;
     };
     struct tnode *parent;
     struct tnode *son;

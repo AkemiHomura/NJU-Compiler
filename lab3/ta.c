@@ -1,5 +1,6 @@
 #include "ta.h"
 #include "tree.h"
+#include "irgen.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +10,8 @@
 type_t std_type_int = {_int_, NULL, NULL, NULL};
 type_t std_type_float = {_float_, NULL, NULL, NULL};
 
-symbol std_read, std_write;
+symbol std_read = {.name = "read", .is_var = false, .line = 0},
+       std_write = {.name = "write", .is_var = false, .line = 0};
 list_head sstack_root;
 
 void pserror(int err, int line, char *errinfo,
@@ -37,16 +39,10 @@ static void init_parse() {
     list_init(&sstack_root);
     push_sstack();
 
-    std_read.name = "read";
-    std_read.is_var = false;
-    std_read.line = 0;
     std_read.fmes = new_func(&std_type_int);
     std_read.fmes->vis_tag = 1;
     export_symbol(&std_read);
 
-    std_write.name = "write";
-    std_write.is_var = false;
-    std_write.line = 0;
     std_write.fmes = new_func(&std_type_int);
     std_write.fmes->vis_tag = 1;
     symbol *write_para = new_symbol("a", true, 0,
@@ -75,6 +71,7 @@ symbol* new_symbol(char *name, bool is_var, int line, void *mes) {
     list_init(&s->list);
     s->name = name;
     s->is_var = is_var;
+    s->op = NULL;
     s->line = line;
     s->fmes = mes;
     return s;
@@ -590,6 +587,7 @@ void stmt(tnode *t, type_t *rett) {
     switch(label_of(t->son)) {
         case _Exp_: {
             expression(t->son);
+            translate_exp(t->son, NULL);
             break;
         }
         case _CompSt_: {
@@ -601,18 +599,42 @@ void stmt(tnode *t, type_t *rett) {
             if(!type_equal(rett, type))
                 pserror(ERR_RET_MISMATCH, t->line,
                         "Type mismatched for return");
+
+            Operand *temp = new_temp();
+            translate_exp(tnode_sec_son(t), temp);
+            export_code(new(InterCode, IR_RETURN, .u.one.op = temp));
             break;
         }
         case _IF_: {
             expression(tnode_thi_son(t));
-            if(tnode_fiv_son(t)->brother)
+            Operand *label1 = new_label();
+            Operand *label2 = new_label();
+            translate_cond(tnode_thi_son(t), label1, label2);
+            export_code(new(InterCode, IR_LABEL, .u.one.op = label1));
+            if(tnode_fiv_son(t)->brother) {
+                Operand *label3 = new_label();
                 stmt(tnode_fiv_son(t), rett);
-            stmt(t->last_son, rett);
+                export_code(new(InterCode, IR_GOTO, .u.one.op = label3));
+                export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
+                stmt(t->last_son, rett);
+                export_code(new(InterCode, IR_LABEL, .u.one.op = label3));
+            } else {
+                stmt(t->last_son, rett);
+                export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
+            }
             break;
         }
         case _WHILE_: {
             expression(tnode_thi_son(t));
+            Operand *label1 = new_label();
+            Operand *label2 = new_label();
+            Operand *label3 = new_label();
+            export_code(new(InterCode, IR_LABEL, .u.one.op = label1));
+            translate_cond(tnode_thi_son(t), label2, label3);
+            export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
             stmt(t->last_son, rett);
+            export_code(new(InterCode, IR_GOTO, .u.one.op = label1));
+            export_code(new(InterCode, IR_LABEL, .u.one.op = label3));
             break;
         }
         default: break;
@@ -645,12 +667,7 @@ void args(tnode *t, func_mes *fm) {
                 "Inapplicable arguments for function");
 }
 
-typedef struct exp_ret {
-    type_t *type;
-    bool is_left;
-} exp_ret;
-
-static exp_ret __expression(tnode *t) {
+exp_ret __expression(tnode *t) {
     assert(label_equal(t, Exp));
     exp_ret ret, tret;
     ret.type = NULL;

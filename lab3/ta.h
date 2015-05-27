@@ -2,8 +2,9 @@
 #define __TREE_PARSE_H__
 #include "list.h"
 #include "tree.h"
-#include "string.h"
-#include "stdio.h"
+#include <string.h>
+#include <stdio.h>
+#include "irgen.h"
 
 enum bool {
     true = 1, false = 0
@@ -58,6 +59,7 @@ struct symbol {
     char *name;
     // var or fun
     bool is_var;
+    Operand *op;
     int line;
     union {
         func_mes *fmes;
@@ -65,6 +67,8 @@ struct symbol {
     };
 };
 typedef struct symbol symbol;
+
+void bind_op_symbol(symbol *, Operand *);
 
 struct hash_t {
     int hash;
@@ -176,6 +180,12 @@ void def_list(tnode *t, type_t *st);
 void stmt(tnode *t, type_t *ret_type);
 void stmt_list(tnode *t, type_t *ret_type);
 void args(tnode *t, func_mes *fm);
+
+typedef struct exp_ret {
+    type_t *type;
+    bool is_left;
+} exp_ret;
+exp_ret __expression(tnode *t);
 type_t* expression(tnode *t);
 void compst(tnode *t, type_t *ret_type, func_mes *fm);
 void ext_def(tnode *t);
