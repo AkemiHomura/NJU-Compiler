@@ -337,6 +337,7 @@ void translate_exp(tnode *exp, Operand *place) {
                         Operand *t2 = new_temp();
                         comp_left = true;
                         translate_exp(exp->son, t1);
+                        comp_left = false;
                         translate_exp(exp->last_son, t2);
                         export_code(new(InterCode, IR_LEFTSTAR, .u.assign.left = t1,
                                     .u.assign.right = t2));
@@ -383,9 +384,10 @@ void translate_exp(tnode *exp, Operand *place) {
                     break;
                 case _LB_: {
                     bool array_in_left = comp_left;
-                    if(comp_left) comp_left = false;
                     Operand *t1 = new_temp();
+                    comp_left = true;
                     translate_exp(exp->son, t1);
+                    comp_left = false;
                     type_t *var_type_copy = var_type;
                     Operand *type_size = new_op_cons(var_type_copy->ta->tsize);
                     Operand *t2 = new_temp();
@@ -408,9 +410,10 @@ void translate_exp(tnode *exp, Operand *place) {
                     break;
                 case _DOT_: {
                     bool struct_in_left = comp_left;
-                    if(comp_left) comp_left = false;
                     Operand *t1 = new_temp();
+                    comp_left = true;
                     translate_exp(exp->son, t1);
+                    comp_left = false;
 
                     type_t *struct_type = var_type;
                     /* find symbol in struct */

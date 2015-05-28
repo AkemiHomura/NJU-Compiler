@@ -8,7 +8,7 @@
     #define YYERROR_VERBOSE 1
     #define yyerror(msg) _yyerror(msg)
     void _yyerror(const char *msg) {
-        printf("Error type B at Line %d: %s\n", yylineno, msg);
+        fprintf(stderr, "Error type B at Line %d: %s\n", yylineno, msg);
         err = 1;
     }
     #define link(n) {\

@@ -146,6 +146,7 @@ type_t* get_struct_in_sstack(char *sname, sstack *sst);
 bool domain_of_struct(type_t *st, char *dname, type_t **dtype);
 bool func_arg_dup(func_mes *fm, char *aname);
 bool type_equal(type_t *a, type_t *b);
+bool func_arg_check_step(type_t *type, symbol *s);
 bool func_arg_check(func_mes *fm, type_t *type, int mode);
 void func_def_check();
 bool func_equal(func_mes *a, func_mes *b);

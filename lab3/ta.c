@@ -16,14 +16,14 @@ list_head sstack_root;
 
 void pserror(int err, int line, char *errinfo,
         ...) {
-    fprintf(stdout, "Error type %d at line %d: ", err,
+    fprintf(stderr, "Error type %d at line %d: ", err,
             line);
     char *format, *info;
     va_list arg_ptr;
     va_start(arg_ptr, errinfo);
-    vfprintf(stdout, errinfo, arg_ptr);
+    vfprintf(stderr, errinfo, arg_ptr);
     va_end(arg_ptr);
-    fprintf(stdout, ".\n");
+    fprintf(stderr, ".\n");
 }
 
 static unsigned hash_pjw(char *name) {
@@ -317,6 +317,10 @@ typedef struct arg_check_list {
 } arg_check_list;
 
 static list_head arg_check;
+
+bool func_arg_check_step(type_t *type, symbol *arg) {
+    return type_equal(arg->vmes->type, type);
+}
 
 bool func_arg_check(func_mes *fm, type_t *type, int mode) {
     static symbol *arg_s = NULL;
@@ -708,17 +712,25 @@ void stmt_list(tnode *t, type_t *rett) {
 
 void args(tnode *t, func_mes *fm) {
     assert(label_equal(t, Args));
-    if(fm) func_arg_check_init(fm);
+    if(!fm) return;
+    list_head *p = fm->argv_list.next;
+    symbol *arg_s;
+    int argc = 0;
     while(label_equal(t, Args)) {
         type_t *arg_t = expression(t->son);
-        if(!func_arg_check_go(arg_t)) {
+        argc ++;
+        if(argc > fm->argc || ({
+                arg_s = list_entry(p, symbol, list);
+                !func_arg_check_step(arg_t, arg_s);
+                })) {
             pserror(ERR_F_PARA_MISMATCH, t->line,
                     "Inapplicable arguments for function");
             return;
         }
+        p = p->next;
         t = t->last_son;
     }
-    if(!func_arg_check_end())
+    if(argc != fm->argc)
         pserror(ERR_F_PARA_MISMATCH, t->line,
                 "Inapplicable arguments for function");
 }

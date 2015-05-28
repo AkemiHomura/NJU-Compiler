@@ -176,7 +176,7 @@ NBLANK  [^\n\f\v\t\r ]
     return ID; printf("ID: %s\n", yytext);}
 
 {BLANK} {}
-{NBLANK} {printf("Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext); err = 1;}
+{NBLANK} {fprintf(stderr, "Error type A at Line %d: Mysterious characters \"%s\"\n", yylineno, yytext); err = 1;}
 %%
 void comment(void) {
     char c, prev = 0;
