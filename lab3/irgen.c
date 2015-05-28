@@ -251,6 +251,7 @@ InterCode* new_ic(ir_kind irk) {
 }
 
 static type_t *var_type = NULL;
+static bool array_right = false;
 
 void translate_exp(tnode *exp, Operand *place) {
     assert(label_equal(exp, Exp));
@@ -331,19 +332,29 @@ void translate_exp(tnode *exp, Operand *place) {
         case _Exp_: {
             switch(label_of(tnode_sec_son(exp))) {
                 case _ASSIGNOP_: {
-                    s = find_by_name_global(id_str(exp->son->son));
-                    Operand *t = new_temp();
-                    translate_exp(exp->last_son, t);
-                    assert(s->op);
-                    InterCode *ic = new_ic(IR_ASSIGN);
-                    ic->u.assign.left = s->op;
-                    ic->u.assign.right = t;
-                    export_code(ic);
-                    if(!place) break;
-                    ic = new_ic(IR_ASSIGN);
-                    ic->u.assign.left = place;
-                    ic->u.assign.right = s->op;
-                    export_code(ic);
+                    if(label_equal(exp->son->son, ID)) {
+                        s = find_by_name_global(id_str(exp->son->son));
+                        Operand *t = new_temp();
+                        translate_exp(exp->last_son, t);
+                        assert(s->op);
+                        InterCode *ic = new_ic(IR_ASSIGN);
+                        ic->u.assign.left = s->op;
+                        ic->u.assign.right = t;
+                        export_code(ic);
+                        if(!place) break;
+                        ic = new_ic(IR_ASSIGN);
+                        ic->u.assign.left = place;
+                        ic->u.assign.right = s->op;
+                        export_code(ic);
+                    } else {
+                        Operand *t1 = new_temp();
+                        Operand *t2 = new_temp();
+                        translate_exp(exp->son, t1);
+                        array_right = true;
+                        translate_exp(exp->last_son, t2);
+                        export_code(new(InterCode, IR_LEFTSTAR, .u.assign.left = t1,
+                                    .u.assign.right = t2));
+                    }
                 }
                     break;
                 case _PLUS_:
@@ -387,6 +398,8 @@ void translate_exp(tnode *exp, Operand *place) {
                 }
                     break;
                 case _LB_: {
+                    bool array_in_right = array_right;
+                    if(array_right) array_right = false;
                     Operand *t1 = new_temp();
                     translate_exp(exp->son, t1);
                     Operand *t2 = new_temp();
@@ -394,14 +407,17 @@ void translate_exp(tnode *exp, Operand *place) {
                     Operand *type_size = new_op_cons(var_type->ta->tsize);
                     export_code(new(InterCode, IR_MUL, .u.binop.result = t2,
                                 .u.binop.op1 = t2, .u.binop.op2 = type_size));
-                    export_code(new(InterCode, IR_RIGHTAT,
-                                .u.assign.left = t1, .u.assign.right = t1));
                     export_code(new(InterCode, IR_ADD,
                                 .u.binop.result = t1, .u.binop.op1 = t1,
                                 .u.binop.op2 = t2));
                     if(!place) break;
-                    export_code(new(InterCode, IR_RIGHTSTAR,
-                                .u.assign.left = place, .u.assign.right = t1));
+                    if(!array_in_right) {
+                        export_code(new(InterCode, IR_ASSIGN, .u.assign.left = place,
+                                    .u.assign.right = t1));
+                    } else {
+                        export_code(new(InterCode, IR_RIGHTSTAR, .u.assign.left = place,
+                                    .u.assign.right = t1));
+                    }
                     var_type = var_type->ta;
                 }
                     break;

@@ -545,7 +545,10 @@ void dec(tnode *t, type_t *type, type_t *st) {
 
         s->op = new_op_var();
         if(type_array(s->vmes->type) || type_struct(s->vmes->type)) {
-            export_code(new(InterCode, IR_DEC, .u.one.op = s->op));
+            Operand *op = new_op_var();
+            export_code(new(InterCode, IR_DEC, .u.one.op = op));
+            export_code(new(InterCode, IR_RIGHTAT, .u.assign.left = s->op,
+                        .u.assign.right = op));
         }
 
         if(label_equal(t->last_son, Exp)) {
