@@ -80,12 +80,12 @@ NBLANK  [^\n\f\v\t\r ]
     if(yytext[0] == '=') p->rk = EQ;
     else if(yytext[0] == '!') p->rk = NE;
     else if(yytext[0] == '>') {
-        if(yytext[1] == '=') p->rk = LE;
-        else p->rk = LT;
-    }
-    else if(yytext[0] == '<') {
         if(yytext[1] == '=') p->rk = GE;
         else p->rk = GT;
+    }
+    else if(yytext[0] == '<') {
+        if(yytext[1] == '=') p->rk = LE;
+        else p->rk = LT;
     }
     return RELOP; printf("RELOP\n");}
 {PLUS}  {

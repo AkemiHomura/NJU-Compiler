@@ -21,6 +21,7 @@ struct type_t {
     union {
         struct {
             char *name;
+            int struct_domain_bottom;
             list_head struct_domain_symbol;
             list_head struct_list;
         };
@@ -47,6 +48,7 @@ struct func_mes {
     int argc;
     list_head argv_list;
     int vis_tag;
+    int arg_bottom;
 };
 typedef struct func_mes func_mes;
 
@@ -62,6 +64,7 @@ struct symbol {
     bool is_var;
     Operand *op;
     int line;
+    int offset;
     union {
         func_mes *fmes;
         var_mes *vmes;
@@ -79,6 +82,7 @@ struct hash_t {
 typedef struct hash_t hash_t;
 
 struct sstack {
+    int bottom;
     list_head stack_list;
     list_head hash_list;
     list_head struct_list;

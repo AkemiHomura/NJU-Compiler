@@ -19,8 +19,8 @@ typedef enum {
 } ir_kind;
 
 typedef enum {
-    VARIABLE, CONSTANT, TEMPVAR, VADDRESS, LABEL,
-    FUNCTION, TADDRESS
+    VARIABLE, CONSTANT, TEMPVAR, LABEL,
+    FUNCTION
 } op_kind;
 
 struct Label {
@@ -67,8 +67,6 @@ Operand* new_op_var();
 Operand* new_op_tvar();
 Operand* new_op_func(char *);
 Operand* new_op_cons(int);
-Operand* new_op_vaddr(Operand *);
-Operand* new_op_tvaddr(Operand *);
 InterCode* new_ic(ir_kind);
 
 void export_code(InterCode *c);
@@ -81,5 +79,14 @@ void translate_cond(tnode *, Operand *, Operand *);
 Operand* translate_args(tnode *);
 
 /* optimize */
+struct basic_block {
+    list_head *begin;
+    list_head *end;
+    list_head list;
+};
+typedef struct basic_block basic_block;
+void divide_into_basic_blocks(list_head *code);
+/* begin is one before true begin */
+void optimize_basic_block(basic_block *bc);
 
 #endif

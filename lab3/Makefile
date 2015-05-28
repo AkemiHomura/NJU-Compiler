@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Werror -lfl -g -O2 -o
+CFLAGS=-Werror -lfl -g -o
 LEXC_AND_YACCC=$(shell find -name "lex.yy.c" -o -name "syntax.tab.*")
 YACC_DEBUG_OUT=$(shell find -name "syntax.output")
 RES=$(shell find -name "parser")
@@ -24,7 +24,7 @@ single_file_test: parser
 	./parser test.cmm
 
 test: parser
-	for t in $(shell find test/*); \
+	for t in $(shell find test/*.c); \
 		do 	echo "$$t" ; \
 		cat "$$t"; \
 		./parser "$$t" ; \
@@ -36,4 +36,7 @@ clean: clean-respreserved
 	rm $(RES) 
 
 clean-respreserved:
-	rm $(YACC_DEBUG_OUT) $(LEXC_AND_YACCC)
+	rm $(YACC_DEBUG_OUT) $(LEXC_AND_YACCC) *.ir
+
+tag: clean
+	ctags -R .

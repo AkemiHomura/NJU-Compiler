@@ -7,8 +7,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-type_t std_type_int = {_int_, NULL, NULL, NULL, .tsize = 4};
-type_t std_type_float = {_float_, NULL, NULL, NULL, .tsize = 4};
+type_t std_type_int = {_int_, .tsize = 4};
+type_t std_type_float = {_float_, .tsize = 4};
 
 symbol std_read = {.name = "read", .is_var = false, .line = 0},
        std_write = {.name = "write", .is_var = false, .line = 0};
@@ -56,6 +56,7 @@ func_mes* new_func(type_t *rett) {
     fm->rett = rett;
     fm->argc = 0;
     fm->vis_tag = 0;
+    fm->arg_bottom = 0;
     list_init(&fm->argv_list);
     return fm;
 }
@@ -72,6 +73,7 @@ symbol* new_symbol(char *name, bool is_var, int line, void *mes) {
     s->name = name;
     s->is_var = is_var;
     s->op = NULL;
+    s->offset = -1;
     s->line = line;
     s->fmes = mes;
     return s;
@@ -81,6 +83,7 @@ type_t* new_type_struct(char *name) {
     type_t *t = (type_t *)malloc(sizeof(type_t));
     tid_of(t) = _struct_;
     t->name = name;
+    t->struct_domain_bottom = 0;
     t->tsize = 0;
     list_init(&t->struct_domain_symbol);
     list_init(&t->struct_list);
@@ -105,6 +108,7 @@ static hash_t* new_hash_table(int hash) {
 
 static sstack* new_sstack() {
     sstack *sst = (sstack *)malloc(sizeof(sstack));
+    sst->bottom = 0;
     list_init(&sst->stack_list);
     list_init(&sst->hash_list);
     list_init(&sst->struct_list);
@@ -192,16 +196,28 @@ void export_symbol_to_stack(symbol *s, sstack *sst) {
         ht = new_hash_table(hash);
         link_hash_table_to_stack(sst, ht);
     }
+    if(s->is_var) {
+        // args >= 0
+        if(s->offset >= 0) sst->bottom += 4;
+        else {
+            s->offset = sst->bottom;
+            sst->bottom += s->vmes->type->tsize;
+        }
+    }
     link_symbol_to_hash_table(s, ht);
 }
 
 void export_symbol_to_func(symbol *s, func_mes *fm) {
+    s->offset = fm->arg_bottom;
+    fm->arg_bottom += 4;
     list_add_before(&fm->argv_list, &s->list);
     fm->argc ++;
 }
 
 void export_symbol_to_struct(symbol *s, type_t *type) {
     assert(type_struct(type));
+    s->offset = type->struct_domain_bottom;
+    type->struct_domain_bottom += s->vmes->type->tsize;
     type->tsize += s->vmes->type->tsize;
     list_add_before(&type->struct_domain_symbol, &s->list);
 }
@@ -294,11 +310,25 @@ bool type_equal(type_t *a, type_t *b) {
     } else return true;
 }
 
+typedef struct arg_check_list {
+    int argc, argct;
+    symbol *args_s;
+    list_head list;
+} arg_check_list;
+
+static list_head arg_check;
+
 bool func_arg_check(func_mes *fm, type_t *type, int mode) {
-    static symbol *arg_s;
+    static symbol *arg_s = NULL;
     static int argc, argct;
     switch(mode) {
         case FUNC_ARG_CHECK_INIT:
+            if(arg_s) {
+                arg_check_list *n = new(arg_check_list, argc,
+                        argct, arg_s);
+                list_init(&n->list);
+                list_add_before(&arg_check, &n->list);
+            } else list_init(&arg_check);
             argc = 0;
             argct = fm->argc;
             arg_s = list_entry(fm->argv_list.next, symbol, list);
@@ -312,9 +342,21 @@ bool func_arg_check(func_mes *fm, type_t *type, int mode) {
                         symbol, list);
                 return ret;
             }
-        case FUNC_ARG_CHECK_END:
-            if(argc == argct) return true;
+        case FUNC_ARG_CHECK_END: {
+            int targc = argc, targct = argct;
+            if(!list_empty(&arg_check)) {
+                arg_check_list *acl = list_entry(arg_check.prev,
+                        arg_check_list, list);
+                list_del(&acl->list);
+                argc = acl->argc;
+                argct = acl->argct;
+                arg_s = acl->args_s;
+                free(acl);
+            } else
+                arg_s = NULL;
+            if(targc == targct) return true;
             else return false;
+        }
         default: return false;
     }
 }
@@ -546,7 +588,7 @@ void dec(tnode *t, type_t *type, type_t *st) {
         s->op = new_op_var();
         if(type_array(s->vmes->type) || type_struct(s->vmes->type)) {
             Operand *op = new_op_var();
-            export_code(new(InterCode, IR_DEC, .u.one.op = op));
+            export_code(new(InterCode, IR_DEC, .u.dec.op = op, .u.dec.size = s->vmes->type->tsize));
             export_code(new(InterCode, IR_RIGHTAT, .u.assign.left = s->op,
                         .u.assign.right = op));
         }
@@ -597,8 +639,10 @@ void def_list(tnode *t, type_t *st) {
     }
 }
 
+Label label_fall = {-1, NULL};
+Operand fall = {LABEL, .u.label = &label_fall, NULL};
 void stmt(tnode *t, type_t *rett) {
-//    printf("%d %s\n", t->syntax_label, t->info);
+/*  printf("%d %s\n", t->syntax_label, t->info); */
     assert(label_equal(t, Stmt));
     switch(label_of(t->son)) {
         case _Exp_: {
@@ -624,19 +668,17 @@ void stmt(tnode *t, type_t *rett) {
         case _IF_: {
             expression(tnode_thi_son(t));
             Operand *label1 = new_label();
-            Operand *label2 = new_label();
-            translate_cond(tnode_thi_son(t), label1, label2);
-            export_code(new(InterCode, IR_LABEL, .u.one.op = label1));
+            translate_cond(tnode_thi_son(t), &fall, label1);
             if(tnode_fiv_son(t)->brother) {
-                Operand *label3 = new_label();
+                Operand *label2 = new_label();
                 stmt(tnode_fiv_son(t), rett);
-                export_code(new(InterCode, IR_GOTO, .u.one.op = label3));
-                export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
+                export_code(new(InterCode, IR_GOTO, .u.one.op = label2));
+                export_code(new(InterCode, IR_LABEL, .u.one.op = label1));
                 stmt(t->last_son, rett);
-                export_code(new(InterCode, IR_LABEL, .u.one.op = label3));
+                export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
             } else {
                 stmt(t->last_son, rett);
-                export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
+                export_code(new(InterCode, IR_LABEL, .u.one.op = label1));
             }
             break;
         }
@@ -644,13 +686,11 @@ void stmt(tnode *t, type_t *rett) {
             expression(tnode_thi_son(t));
             Operand *label1 = new_label();
             Operand *label2 = new_label();
-            Operand *label3 = new_label();
             export_code(new(InterCode, IR_LABEL, .u.one.op = label1));
-            translate_cond(tnode_thi_son(t), label2, label3);
-            export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
+            translate_cond(tnode_thi_son(t), &fall, label2);
             stmt(t->last_son, rett);
             export_code(new(InterCode, IR_GOTO, .u.one.op = label1));
-            export_code(new(InterCode, IR_LABEL, .u.one.op = label3));
+            export_code(new(InterCode, IR_LABEL, .u.one.op = label2));
             break;
         }
         default: break;

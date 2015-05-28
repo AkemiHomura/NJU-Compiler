@@ -19,8 +19,9 @@ enum syntax_label_group {
 typedef enum syntax_label_group syntax_label_group;
 
 typedef enum {
-    EQ, LT, LE, GT, GE, NE
+    EQ = 0, LT = 1, GT = 2, LE = 3, GE = 4, NE = 5
 } relop_kind;
+#define reverse_relop(x) (EQ + NE - (x))
 
 struct tnode {
     char *info;
