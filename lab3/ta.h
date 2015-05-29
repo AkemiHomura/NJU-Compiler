@@ -4,12 +4,8 @@
 #include "tree.h"
 #include <string.h>
 #include <stdio.h>
+#include "bool.h"
 #include "irgen.h"
-
-enum bool {
-    true = 1, false = 0
-};
-typedef enum bool bool;
 
 enum _type_id_ {
     _int_, _float_, _array_, _struct_

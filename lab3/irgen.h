@@ -2,6 +2,7 @@
 #define __IRGEN_H__
 #include "list.h"
 #include "tree.h"
+#include "bool.h"
 #include <stdio.h>
 
 #define new(type, ...) ({ \
@@ -70,6 +71,11 @@ Operand* new_op_cons(int);
 InterCode* new_ic(ir_kind);
 
 void export_code(InterCode *c);
+InterCode* get_last_code();
+bool last_is_temp_assign_cons(Operand *temp);
+bool last_is_temp_assign_vari(Operand *temp);
+void delete_last_code();
+
 void delete_code(InterCode *c);
 void print_code(list_head *code, FILE *fp);
 void print_op(Operand *op, FILE *fp);
@@ -85,7 +91,7 @@ struct basic_block {
     list_head list;
 };
 typedef struct basic_block basic_block;
-void divide_into_basic_blocks(list_head *code);
+void divide_into_basic_blocks(list_head *code, basic_block *root);
 /* begin is one before true begin */
 void optimize_basic_block(basic_block *bc);
 

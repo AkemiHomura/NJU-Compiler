@@ -20,8 +20,54 @@ void export_code(InterCode *c) {
     list_add_before(&code, &c->list);
 }
 
+InterCode* get_last_code() {
+    return list_entry(code.prev, InterCode, list);
+}
+
+inline bool last_is_temp_assign_cons(Operand *temp) {
+    InterCode *last_ic = get_last_code();
+    return (last_ic->kind == IR_ASSIGN &&
+            last_ic->u.assign.left == temp &&
+            last_ic->u.assign.right->kind == CONSTANT);
+}
+
+inline bool last_is_temp_assign_vari(Operand *temp) {
+    InterCode *last_ic = get_last_code();
+    return (last_ic->kind == IR_ASSIGN &&
+            last_ic->u.assign.left == temp &&
+            last_ic->u.assign.right->kind == VARIABLE);
+}
+
+inline bool last_is_read_temp(Operand *temp) {
+    InterCode *last_ic = get_last_code();
+    return (last_ic->kind == IR_READ &&
+            last_ic->u.one.op == temp);
+}
+
 void delete_code(InterCode *c) {
     list_del(&c->list);
+}
+
+void delete_last_code() {
+    delete_code(get_last_code());
+}
+
+bool test_ifgoto(Operand *t1, Operand *t2, relop_kind rk) {
+    if(t1->kind == CONSTANT && t2->kind == CONSTANT) {
+        if(rk == EQ)
+        return t1->u.cons == t2->u.cons;
+        else if(rk == NE)
+        return t1->u.cons != t2->u.cons;
+        else if(rk == LT)
+            return t1->u.cons < t2->u.cons;
+        else if(rk == LE)
+            return t1->u.cons <= t2->u.cons;
+        else if(rk == GT)
+            return t1->u.cons > t2->u.cons;
+        else if(rk == GE)
+            return t1->u.cons >= t2->u.cons;
+    }
+    return false;
 }
 
 void print_relop(relop_kind rk, FILE *fp) {
@@ -276,6 +322,11 @@ void translate_exp(tnode *exp, Operand *place) {
                 if(label_equal(tnode_thi_son(exp), Args)) {
                     Operand *args = translate_args(tnode_thi_son(exp));
                     if(strcmp(s->name, "write") == 0) {
+                        if(last_is_temp_assign_cons(args) ||
+                                last_is_temp_assign_vari(args)) {
+                            args = get_last_code()->u.assign.right;
+                            delete_last_code();
+                        }
                         InterCode *ic = new(InterCode, IR_WRITE,
                                 .u.one.op = args);
                         export_code(ic);
@@ -307,12 +358,23 @@ void translate_exp(tnode *exp, Operand *place) {
         case _MINUS_: {
             Operand *t = new_temp();
             translate_exp(exp->last_son, t);
-            InterCode *ic = new_ic(IR_SUB);
-            if(!place) break;
-            ic->u.binop.result = place;
-            ic->u.binop.op1 = &zero;
-            ic->u.binop.op2 = t;
-            export_code(ic);
+            if(last_is_temp_assign_cons(t)) {
+                InterCode *last_ic = get_last_code();
+                delete_last_code();
+                last_ic->u.assign.right->u.cons =
+                    -last_ic->u.assign.right->u.cons;
+                if(!place) break;
+                export_code(new(InterCode, IR_ASSIGN,
+                            .u.assign.left = place,
+                            .u.assign.right = last_ic->u.assign.right));
+            } else {
+                InterCode *ic = new_ic(IR_SUB);
+                if(!place) break;
+                ic->u.binop.result = place;
+                ic->u.binop.op1 = &zero;
+                ic->u.binop.op2 = t;
+                export_code(ic);
+            }
         }
             break;
         case _Exp_: {
@@ -320,13 +382,22 @@ void translate_exp(tnode *exp, Operand *place) {
                 case _ASSIGNOP_: {
                     if(label_equal(exp->son->son, ID)) {
                         s = find_by_name_global(id_str(exp->son->son));
-                        Operand *t = new_temp();
-                        translate_exp(exp->last_son, t);
                         if(!s->op) s->op = new_op_var();
+                        Operand *t = new_temp();
+                        translate_exp(exp->last_son, s->op);
                         InterCode *ic = new_ic(IR_ASSIGN);
+                        /*
+                        InterCode *last_ic = get_last_code();
                         ic->u.assign.left = s->op;
-                        ic->u.assign.right = t;
+                        if(last_ic->kind == IR_ASSIGN &&
+                                last_ic->u.assign.left == t &&
+                                last_ic->u.assign.right->kind == CONSTANT) {
+                            ic->u.assign.right = last_ic->u.assign.right;
+                            delete_code(last_ic);
+                        } else
+                            ic->u.assign.right = t;
                         export_code(ic);
+                        */
                         if(!place) break;
                         ic = new_ic(IR_ASSIGN);
                         ic->u.assign.left = place;
@@ -338,7 +409,20 @@ void translate_exp(tnode *exp, Operand *place) {
                         comp_left = true;
                         translate_exp(exp->son, t1);
                         comp_left = false;
+                        InterCode *last_ic = get_last_code();
+                        if(last_ic->kind == IR_ADD &&
+                                last_ic->u.binop.result == t1 &&
+                                last_ic->u.binop.op2 == &zero) {
+                            delete_last_code();
+                            t1 = last_ic->u.binop.op1;
+                        }
+
                         translate_exp(exp->last_son, t2);
+                        if(last_is_temp_assign_cons(t2) ||
+                                last_is_temp_assign_vari(t2)) {
+                            t2 = get_last_code()->u.assign.right;
+                            delete_last_code();
+                        }
                         export_code(new(InterCode, IR_LEFTSTAR, .u.assign.left = t1,
                                     .u.assign.right = t2));
                     }
@@ -351,7 +435,59 @@ void translate_exp(tnode *exp, Operand *place) {
                     Operand *t1 = new_temp();
                     Operand *t2 = new_temp();
                     translate_exp(exp->son, t1);
+                    if(last_is_temp_assign_cons(t1)) {
+                        InterCode *last_ic = get_last_code();
+                        delete_last_code();
+                        if(label_equal(tnode_sec_son(exp), PLUS) ||
+                                label_equal(tnode_sec_son(exp), MINUS)) {
+                            if(last_ic->u.assign.right->u.cons == 0) {
+                                translate_exp(exp->last_son, t2);
+                                export_code(new(InterCode, IR_ASSIGN,
+                                            .u.assign.left = place,
+                                            .u.assign.right = t2));
+                                break;
+                            }
+                        } else if(label_equal(tnode_sec_son(exp), STAR)) {
+                            if(last_ic->u.assign.right->u.cons == 1) {
+                                translate_exp(exp->last_son, t2);
+                                export_code(new(InterCode, IR_ASSIGN,
+                                            .u.assign.left = place,
+                                            .u.assign.right = t2));
+                                break;
+                            }
+                        }
+                        t1 = last_ic->u.assign.right;
+                    }
+                    if(last_is_temp_assign_vari(t1)) {
+                        t1 = get_last_code()->u.assign.right;
+                        delete_last_code();
+                    }
                     translate_exp(exp->last_son, t2);
+                    if(last_is_temp_assign_cons(t2)) {
+                        InterCode *last_ic = get_last_code();
+                        delete_last_code();
+                        if(label_equal(tnode_sec_son(exp), PLUS) ||
+                                label_equal(tnode_sec_son(exp), MINUS)) {
+                            if(last_ic->u.assign.right->u.cons == 0) {
+                                export_code(new(InterCode, IR_ASSIGN,
+                                            .u.assign.left = place,
+                                            .u.assign.right = t1));
+                                break;
+                            }
+                        } else if(label_equal(tnode_sec_son(exp), STAR)) {
+                            if(last_ic->u.assign.right->u.cons == 1) {
+                                export_code(new(InterCode, IR_ASSIGN,
+                                            .u.assign.left = place,
+                                            .u.assign.right = t1));
+                                break;
+                            }
+                        }
+                        t2 = last_ic->u.assign.right;
+                    }
+                    if(last_is_temp_assign_vari(t2)) {
+                        t2 = get_last_code()->u.assign.right;
+                        delete_last_code();
+                    }
                     InterCode *ic;
                     if(label_equal(tnode_sec_son(exp), PLUS))
                         ic = new_ic(IR_ADD);
@@ -384,36 +520,57 @@ void translate_exp(tnode *exp, Operand *place) {
                     break;
                 case _LB_: {
                     bool array_in_left = comp_left;
-                    Operand *t1 = new_temp();
+                    Operand *base;
+                    //Operand *t1 = new_temp();
                     comp_left = true;
-                    translate_exp(exp->son, t1);
+                    translate_exp(exp->son, place);
                     comp_left = false;
+                    if(last_is_temp_assign_vari(place)) {
+                        base = get_last_code()->u.assign.right;
+                        delete_last_code();
+                    } else base = place;
                     type_t *var_type_copy = var_type;
                     Operand *type_size = new_op_cons(var_type_copy->ta->tsize);
                     Operand *t2 = new_temp();
                     translate_exp(tnode_thi_son(exp), t2);
-                    export_code(new(InterCode, IR_MUL, .u.binop.result = t2,
-                                .u.binop.op1 = t2, .u.binop.op2 = type_size));
-                    export_code(new(InterCode, IR_ADD,
-                                .u.binop.result = t1, .u.binop.op1 = t1,
-                                .u.binop.op2 = t2));
+                    if(last_is_temp_assign_cons(t2)) {
+                        t2 = get_last_code()->u.assign.right;
+                        delete_last_code();
+                        t2->u.cons = t2->u.cons * type_size->u.cons;
+                        export_code(new(InterCode, IR_ADD,
+                                    .u.binop.result = place, .u.binop.op1 = base,
+                                    .u.binop.op2 = t2));
+                    } else {
+                        export_code(new(InterCode, IR_MUL, .u.binop.result = t2,
+                                    .u.binop.op1 = t2, .u.binop.op2 = type_size));
+                        export_code(new(InterCode, IR_ADD,
+                                    .u.binop.result = place, .u.binop.op1 = base,
+                                    .u.binop.op2 = t2));
+                    }
                     if(!place) break;
                     if(array_in_left) {
+                        /*
                         export_code(new(InterCode, IR_ASSIGN, .u.assign.left = place,
-                                    .u.assign.right = t1));
+                                    .u.assign.right = place));
+                                    */
                     } else {
                         export_code(new(InterCode, IR_RIGHTSTAR, .u.assign.left = place,
-                                    .u.assign.right = t1));
+                                    .u.assign.right = place));
                     }
                     var_type = var_type_copy->ta;
                 }
                     break;
                 case _DOT_: {
                     bool struct_in_left = comp_left;
-                    Operand *t1 = new_temp();
+                    Operand *base;
+                    //Operand *t1 = new_temp();
                     comp_left = true;
-                    translate_exp(exp->son, t1);
+                    translate_exp(exp->son, place);
                     comp_left = false;
+                    if(last_is_temp_assign_vari(place)) {
+                        base = get_last_code()->u.assign.right;
+                        delete_last_code();
+                    } else base = place;
 
                     type_t *struct_type = var_type;
                     /* find symbol in struct */
@@ -425,15 +582,17 @@ void translate_exp(tnode *exp, Operand *place) {
                             break;
                     }
                     Operand *t2 = new_op_cons(s->offset);
-                    export_code(new(InterCode, IR_ADD, .u.binop.result = t1,
-                                .u.binop.op1 = t1, .u.binop.op2 = t2));
+                    export_code(new(InterCode, IR_ADD, .u.binop.result = place,
+                                .u.binop.op1 = base, .u.binop.op2 = t2));
                     if(!place) break;
                     if(struct_in_left) {
+                        /*
                         export_code(new(InterCode, IR_ASSIGN, .u.assign.left = place,
-                                    .u.assign.right = t1));
+                                    .u.assign.right = place));
+                                    */
                     } else {
                         export_code(new(InterCode, IR_RIGHTSTAR, .u.assign.left = place,
-                                    .u.assign.right = t1));
+                                    .u.assign.right = place));
                     }
                     var_type = s->vmes->type;
                 }
@@ -476,25 +635,45 @@ void translate_cond(tnode *exp, Operand *label_true, Operand *label_false) {
                     Operand *t1 = new_temp();
                     Operand *t2 = new_temp();
                     translate_exp(exp->son, t1);
+                    if(last_is_temp_assign_cons(t1) ||
+                            last_is_temp_assign_vari(t1)) {
+                        t1 = get_last_code()->u.assign.right;
+                        delete_last_code();
+                    }
                     translate_exp(exp->last_son, t2);
+                    if(last_is_temp_assign_cons(t2) ||
+                            last_is_temp_assign_vari(t2)) {
+                        t2 = get_last_code()->u.assign.right;
+                        delete_last_code();
+                    }
                     if(label_true != &fall && label_false != &fall) {
                         InterCode *ic = new(InterCode, IR_IFGOTO,
                                 .u.triop.t1 = t1, .u.triop.t2 = t2,
                                 .u.triop.relop = tnode_sec_son(exp)->rk,
                                 .u.triop.label = label_true);
-                        export_code(ic);
+                        if(test_ifgoto(t1, t2, tnode_sec_son(exp)->rk)) {
+                            export_code(new(InterCode, IR_GOTO, .u.one.op = label_true));
+                            break;
+                        } else if (t1->kind != CONSTANT || t2->kind != CONSTANT)
+                            export_code(ic);
                         ic = new(InterCode, IR_GOTO, .u.one.op = label_false);
                         export_code(ic);
                     } else if(label_true != &fall) {
-                        export_code(new(InterCode, IR_IFGOTO,
-                                    .u.triop.t1 = t1, .u.triop.t2 = t2,
-                                    .u.triop.relop = tnode_sec_son(exp)->rk,
-                                    .u.triop.label = label_true));
+                        if(test_ifgoto(t1, t2, tnode_sec_son(exp)->rk)) {
+                            export_code(new(InterCode, IR_GOTO, .u.one.op = label_true));
+                        } else
+                            export_code(new(InterCode, IR_IFGOTO,
+                                        .u.triop.t1 = t1, .u.triop.t2 = t2,
+                                        .u.triop.relop = tnode_sec_son(exp)->rk,
+                                        .u.triop.label = label_true));
                     } else if(label_false != &fall) {
-                        export_code(new(InterCode, IR_IFGOTO,
-                                    .u.triop.t1 = t1, .u.triop.t2 = t2,
-                                    .u.triop.relop = reverse_relop(tnode_sec_son(exp)->rk),
-                                    .u.triop.label = label_false));
+                        if(test_ifgoto(t1, t2, reverse_relop(tnode_sec_son(exp)->rk)))
+                            export_code(new(InterCode, IR_GOTO, .u.one.op = label_false));
+                        else
+                            export_code(new(InterCode, IR_IFGOTO,
+                                        .u.triop.t1 = t1, .u.triop.t2 = t2,
+                                        .u.triop.relop = reverse_relop(tnode_sec_son(exp)->rk),
+                                        .u.triop.label = label_false));
                     }
                 }
                     break;
@@ -528,21 +707,36 @@ void translate_cond(tnode *exp, Operand *label_true, Operand *label_false) {
                 default: {
                     Operand *t = new_temp();
                     translate_exp(exp, t);
+                    if(last_is_temp_assign_cons(t) ||
+                            last_is_temp_assign_vari(t)) {
+                        t = get_last_code()->u.assign.right;
+                        delete_last_code();
+                    }
                     if(label_true != &fall && label_false != &fall) {
                         InterCode *ic = new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
                                 .u.triop.relop = NE, .u.triop.t2 = &zero,
                                 .u.triop.label = label_true);
-                        export_code(ic);
+                        if(test_ifgoto(t, &zero, tnode_sec_son(exp)->rk)) {
+                            export_code(new(InterCode, IR_GOTO, .u.one.op = label_true));
+                            break;
+                        } else if (t->kind != CONSTANT)
+                            export_code(ic);
                         ic = new(InterCode, IR_GOTO, .u.one.op = label_false);
                         export_code(ic);
                     } else if(label_true != &fall) {
-                        export_code(new(InterCode, IR_IFGOTO,.u.triop.t1 = t,
-                                .u.triop.relop = NE, .u.triop.t2 = &zero,
-                                .u.triop.label = label_true));
+                        if(test_ifgoto(t, &zero, NE))
+                            export_code(new(InterCode, IR_GOTO, .u.one.op = label_true));
+                        else
+                            export_code(new(InterCode, IR_IFGOTO,.u.triop.t1 = t,
+                                        .u.triop.relop = NE, .u.triop.t2 = &zero,
+                                        .u.triop.label = label_true));
                     } else if(label_false != &fall) {
-                        export_code(new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
-                                .u.triop.relop = EQ, .u.triop.t2 = &zero,
-                                .u.triop.label = label_false));
+                        if(test_ifgoto(t, &zero, EQ))
+                            export_code(new(InterCode, IR_GOTO, .u.one.op = label_false));
+                        else
+                            export_code(new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
+                                        .u.triop.relop = EQ, .u.triop.t2 = &zero,
+                                        .u.triop.label = label_false));
                     }
                 }
                     break;
@@ -552,21 +746,36 @@ void translate_cond(tnode *exp, Operand *label_true, Operand *label_false) {
         default: {
             Operand *t = new_temp();
             translate_exp(exp, t);
+            if(last_is_temp_assign_cons(t) ||
+                    last_is_temp_assign_vari(t)) {
+                t = get_last_code()->u.assign.right;
+                delete_last_code();
+            }
             if(label_true != &fall && label_false != &fall) {
                 InterCode *ic = new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
                         .u.triop.relop = NE, .u.triop.t2 = &zero,
                         .u.triop.label = label_true);
-                export_code(ic);
+                if(test_ifgoto(t, &zero, tnode_sec_son(exp)->rk)) {
+                    export_code(new(InterCode, IR_GOTO, .u.one.op = label_true));
+                    break;
+                } else if (t->kind != CONSTANT)
+                    export_code(ic);
                 ic = new(InterCode, IR_GOTO, .u.one.op = label_false);
                 export_code(ic);
             } else if(label_true != &fall) {
-                export_code(new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
-                            .u.triop.relop = NE, .u.triop.t2 = &zero,
-                            .u.triop.label = label_true));
+                if(test_ifgoto(t, &zero, NE))
+                    export_code(new(InterCode, IR_GOTO, .u.one.op = label_true));
+                else
+                    export_code(new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
+                                .u.triop.relop = NE, .u.triop.t2 = &zero,
+                                .u.triop.label = label_true));
             } else if(label_false != &fall) {
-                export_code(new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
-                            .u.triop.relop = EQ, .u.triop.t2 = &zero,
-                            .u.triop.label = label_false));
+                if(test_ifgoto(t, &zero, EQ))
+                    export_code(new(InterCode, IR_GOTO, .u.one.op = label_false));
+                else
+                    export_code(new(InterCode, IR_IFGOTO, .u.triop.t1 = t,
+                                .u.triop.relop = EQ, .u.triop.t2 = &zero,
+                                .u.triop.label = label_false));
             }
         }
             break;
@@ -577,14 +786,24 @@ Operand *translate_args(tnode *args) {
     assert(label_equal(args, Args));
     Operand *t = new_temp();
     translate_exp(args->son, t);
+    if(last_is_temp_assign_vari(t)) {
+        t = get_last_code()->u.assign.right;
+        delete_last_code();
+    }
     if(label_equal(args->last_son, Args)) {
         t->next = translate_args(args->last_son);
     }
     return t;
 }
 
-void divide_into_basic_blocks(list_head *code) {
+basic_block broot;
 
+void divide_into_basic_blocks(list_head *code, basic_block *root) {
+    list_head *p;
+    list_head *begin = code, *end = code;
+    list_foreach(p, code) {
+        InterCode *ic = list_entry(p, InterCode, list);
+    }
 }
 
 void optimize_basic_block(basic_block *bc) {

@@ -666,6 +666,11 @@ void stmt(tnode *t, type_t *rett) {
 
             Operand *temp = new_temp();
             translate_exp(tnode_sec_son(t), temp);
+            if(last_is_temp_assign_cons(temp) ||
+                    last_is_temp_assign_vari(temp)) {
+                temp = get_last_code()->u.assign.right;
+                delete_last_code();
+            }
             export_code(new(InterCode, IR_RETURN, .u.one.op = temp));
             break;
         }
