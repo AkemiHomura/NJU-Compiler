@@ -541,8 +541,13 @@ void translate_exp(tnode *exp, Operand *place) {
                                     .u.binop.result = place, .u.binop.op1 = base,
                                     .u.binop.op2 = t2));
                     } else {
+                        Operand *offset;
+                        if(last_is_temp_assign_vari(t2)) {
+                            offset = get_last_code()->u.assign.right;
+                            delete_last_code();
+                        } else offset = t2;
                         export_code(new(InterCode, IR_MUL, .u.binop.result = t2,
-                                    .u.binop.op1 = t2, .u.binop.op2 = type_size));
+                                    .u.binop.op1 = offset, .u.binop.op2 = type_size));
                         export_code(new(InterCode, IR_ADD,
                                     .u.binop.result = place, .u.binop.op1 = base,
                                     .u.binop.op2 = t2));
