@@ -17,6 +17,10 @@ int main(int argc, char** argv) {
         perror(argv[1]);
         return 1;
     }
+    FILE *fp = stdout;
+    if(argc == 3) {
+        fp = fopen(argv[2], "w");
+    }
 
     yyrestart(f);
 #if YYDEBUG
@@ -27,9 +31,7 @@ int main(int argc, char** argv) {
 #ifdef DEBUG
         print_tree(root);
 #endif
-        FILE *fp = fopen("./test.ir", "w");
         main_parse(root);
-        print_code(&code, stdout);
         print_code(&code, fp);
     }
     return 0;
