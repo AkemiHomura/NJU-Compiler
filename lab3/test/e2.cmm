@@ -1,0 +1,26 @@
+ struct score {
+ int calculus, algorithm;
+ };
+ int compare(struct score s1, struct score s2)
+ {
+ int a = s1.calculus + s1.algorithm;
+ int b = s2.calculus + s2.algorithm;
+ int d;
+ if (a > b)
+ d = 1;
+ else if (a == b)
+ d = 0;
+ else
+ d = -1;
+ return d;
+ }
+ int main()
+ {
+ struct score ss1, ss2;
+ ss1.calculus = 95;
+ ss1.algorithm = 96;
+ ss2.calculus = 98;
+ ss2.algorithm = 90;
+ write(compare(ss1, ss2));
+ return 0;
+ }

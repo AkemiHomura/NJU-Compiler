@@ -1,9 +1,9 @@
-*test*
-test/
+test/*.ir
 *.yy.c
 *.tab.c
 *.pdf
 .ycm*
 tags
 parser
+*.pdf
 
