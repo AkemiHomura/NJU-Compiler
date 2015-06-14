@@ -200,18 +200,22 @@ void print_code(list_head *code, FILE *fp) {
 
 void print_op(Operand *op, FILE *fp) {
     if(!op) return;
+    static int v = 0, l = 0, t = 0;
     switch(op->kind) {
         case VARIABLE:
-            fprintf(fp, "v%d", op->u.var_no);
+            if(op->u.var_no > 0) op->u.var_no = --v;
+            fprintf(fp, "v%d", -op->u.var_no);
             break;
         case CONSTANT:
             fprintf(fp, "#%d", op->u.cons);
             break;
         case TEMPVAR:
-            fprintf(fp, "t%d", op->u.var_no);
+            if(op->u.var_no > 0) op->u.var_no = --t;
+            fprintf(fp, "t%d", -op->u.var_no);
             break;
         case LABEL:
-            fprintf(fp, "label%d", op->u.label->no);
+            if(op->u.label->no > 0) op->u.label->no = --l;
+            fprintf(fp, "label%d", -op->u.label->no);
             break;
         case FUNCTION:
             fprintf(fp, "%s", op->u.value);
