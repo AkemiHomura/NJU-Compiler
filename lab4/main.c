@@ -2,6 +2,7 @@
 #include "syntax.tab.h"
 #include "tree.h"
 #include "irgen.h"
+#include "mips.h"
 
 extern tnode* root;
 extern int err;
@@ -33,6 +34,7 @@ int main(int argc, char** argv) {
 #endif
         main_parse(root);
         print_code(&code, fp);
+        //init_mips(stdout);
     }
     return 0;
 }

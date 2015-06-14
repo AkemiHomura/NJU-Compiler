@@ -5,17 +5,17 @@ YACC_DEBUG_OUT=$(shell find -name "syntax.output")
 RES=$(shell find -name "parser")
 INCLUDE=$(shell find -name "*.h")
 
-parser: lex.yy.c syntax.tab.c main.c tree.c ta.c irgen.c $(INCLUDE)
-	$(CC) main.c syntax.tab.c tree.c ta.c irgen.c -ly $(CFLAGS) parser
+parser: lex.yy.c syntax.tab.c main.c tree.c ta.c irgen.c mips.c $(INCLUDE)
+	$(CC) main.c syntax.tab.c tree.c ta.c irgen.c mips.c -ly $(CFLAGS) parser
 
-debug: lex.yy.c syntax.tab.c main.c tree.c ta.c irgen.c $(INCLUDE)
-	$(CC) main.c syntax.tab.c tree.c ta.c irgen.c -ly $(CFLAGS) parser -D DEBUG
+debug: lex.yy.c syntax.tab.c main.c tree.c ta.c irgen.c mips.c $(INCLUDE)
+	$(CC) main.c syntax.tab.c tree.c ta.c irgen.c mips.c -ly $(CFLAGS) parser -D DEBUG
 
 syntax.tab.c syntax.tab.h: syntax.y
 	bison -d syntax.y
 
 lex.yy.c: lexical.l syntax.tab.h
-	flex lexical.l
+	flex lexical.l lex.yy.c
 
 syntax-debug: syntax.y
 	bison -d -v syntax.y

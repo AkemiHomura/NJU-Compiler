@@ -21,7 +21,7 @@ typedef enum {
 
 typedef enum {
     VARIABLE, CONSTANT, TEMPVAR, LABEL,
-    FUNCTION
+    FUNCTION, VARIADDR
 } op_kind;
 
 struct Label {
@@ -39,6 +39,8 @@ struct Operand {
         int cons; // constant
         struct Operand* name; //vaddress, taddress
     } u;
+    void *reg_ptr;
+    int offset2fp;
     struct Operand* next;
 };
 typedef struct Operand Operand;
@@ -48,7 +50,7 @@ struct InterCode {
     union {
         /* return, label, goto, read, write, arg, function, param */
         struct { Operand *op; } one;
-        /* assign, call, leftstar, rightstart, rightat */
+        /* assign, call, leftstar, rightstar, rightat */
         struct { Operand *left, *right; } assign;
         /* add, sub, mul, div */
         struct { Operand *result, *op1, *op2; } binop;

@@ -35,7 +35,8 @@ inline bool last_is_temp_assign_vari(Operand *temp) {
     InterCode *last_ic = get_last_code();
     return (last_ic->kind == IR_ASSIGN &&
             last_ic->u.assign.left == temp &&
-            last_ic->u.assign.right->kind == VARIABLE);
+            (last_ic->u.assign.right->kind == VARIABLE ||
+             last_ic->u.assign.right->kind == VARIADDR));
 }
 
 inline bool last_is_read_temp(Operand *temp) {
@@ -203,6 +204,7 @@ void print_op(Operand *op, FILE *fp) {
     static int v = 0, l = 0, t = 0;
     switch(op->kind) {
         case VARIABLE:
+        case VARIADDR:
             if(op->u.var_no > 0) op->u.var_no = --v;
             fprintf(fp, "v%d", -op->u.var_no);
             break;
@@ -240,6 +242,7 @@ int gen_no(op_kind op) {
 
 Operand* new_label() {
     Operand *nl = new(Operand);
+    nl->reg_ptr = NULL;
     nl->kind = LABEL;
     nl->u.label = new(Label);
     nl->u.label->no = gen_no(LABEL);
@@ -250,14 +253,18 @@ Operand* new_label() {
 
 Operand* new_op_var() {
     Operand *v = new(Operand);
+    v->reg_ptr = NULL;
     v->kind = VARIABLE;
     v->u.var_no = gen_no(VARIABLE);
     v->next = NULL;
+    v->offset2fp = -1;
     return v;
 }
 
-Operand* new_op_tvar() { Operand *tv = new(Operand);
+Operand* new_op_tvar() {
+    Operand *tv = new(Operand);
     tv->kind = TEMPVAR;
+    tv->reg_ptr = NULL;
     tv->u.var_no = gen_no(TEMPVAR);
     tv->next = NULL;
     return tv;
@@ -265,6 +272,7 @@ Operand* new_op_tvar() { Operand *tv = new(Operand);
 
 Operand* new_op_func(char *fname) {
     Operand *f = new(Operand);
+    f->reg_ptr = NULL;
     f->kind = FUNCTION;
     f->u.value = fname;
     f->next = NULL;
@@ -273,6 +281,7 @@ Operand* new_op_func(char *fname) {
 
 Operand* new_op_cons(int cons) {
     Operand *c = new(Operand);
+    c->reg_ptr = NULL;
     c->kind = CONSTANT;
     c->u.cons = cons;
     c->next = NULL;

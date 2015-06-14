@@ -14,6 +14,8 @@ symbol std_read = {.name = "read", .is_var = false, .line = 0},
        std_write = {.name = "write", .is_var = false, .line = 0};
 list_head sstack_root;
 
+static int offset2fp = 0;
+
 void pserror(int err, int line, char *errinfo,
         ...) {
     fprintf(stderr, "Error type %d at line %d: ", err,
@@ -471,6 +473,13 @@ static void gen_func_arg(tnode *vl, func_mes *fm) {
             vl = vl->last_son;
             pd = vl->son;
         }
+        int arg_offset2fp = 0;
+        list_head *p;
+        list_foreach_rev(p, &fm->argv_list) {
+            args = list_entry(p, symbol, list);
+            args->op->offset2fp = arg_offset2fp;
+            arg_offset2fp += 4;
+        }
     }
 }
 
@@ -590,12 +599,15 @@ void dec(tnode *t, type_t *type, type_t *st) {
         else export_symbol(s);
 
         s->op = new_op_var();
+        s->op->offset2fp = offset2fp;
         if(type_array(s->vmes->type) || type_struct(s->vmes->type)) {
             Operand *op = new_op_tvar();
             export_code(new(InterCode, IR_DEC, .u.dec.op = op, .u.dec.size = s->vmes->type->tsize));
             export_code(new(InterCode, IR_RIGHTAT, .u.assign.left = s->op,
                         .u.assign.right = op));
-        }
+            s->op->kind = VARIADDR;
+            offset2fp += s->vmes->type->tsize;
+        } else offset2fp += 4;
 
         if(label_equal(t->last_son, Exp)) {
             type_t *et = expression(t->last_son);
@@ -874,7 +886,12 @@ type_t* expression(tnode *t) {
 
 void compst(tnode *t, type_t *rett, func_mes *fm) {
     push_sstack();
-    if(fm) export_func_arg(fm);
+    if(fm) {
+        export_func_arg(fm);
+        if(list_empty(&fm->argv_list))
+        offset2fp = 0;
+        else offset2fp = list_entry(fm->argv_list.next, symbol, list)->op->offset2fp + 4;
+    }
     if(t->snum == 3) {
         if(label_equal(tnode_sec_son(t), DefList))
             def_list_in_func(tnode_sec_son(t));
