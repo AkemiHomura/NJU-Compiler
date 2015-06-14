@@ -1,0 +1,10 @@
+*test*
+test/*
+*.yy.c
+*.tab.c
+*.pdf
+.ycm*
+tags
+parser
+*.pdf
+
