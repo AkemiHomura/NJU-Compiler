@@ -26,7 +26,7 @@ single_file_test: parser
 test: parser
 	for t in $(shell find test/*.cmm); \
 		do 	echo "$$t" ; \
-		./parser "$$t" "$$t.ir"; \
+		./parser "$$t" "$$t.s"; \
 		echo "\n" ; \
 		done
 

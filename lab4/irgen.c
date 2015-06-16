@@ -8,8 +8,8 @@ extern Operand fall;
 
 list_head code;
 
-Operand zero = {CONSTANT, .u.cons = 0, NULL};
-Operand one = {CONSTANT, .u.cons = 1, NULL};
+Operand zero = {CONSTANT, .u.cons = 0, .next = NULL};
+Operand one = {CONSTANT, .u.cons = 1, .next = NULL};
 
 void init_irgen() {
     list_init(&code);
@@ -95,129 +95,129 @@ void print_relop(relop_kind rk, FILE *fp) {
     }
 }
 
+void print_ic(FILE *fp, InterCode *ic) {
+    switch(ic->kind) {
+        case IR_ASSIGN:
+            print_op(ic->u.assign.left, fp);
+            fprintf(fp, " := ");
+            print_op(ic->u.assign.right, fp);
+            break;
+        case IR_ADD:
+        case IR_SUB:
+        case IR_MUL:
+        case IR_DIV:
+            print_op(ic->u.binop.result, fp);
+            fprintf(fp, " := ");
+            print_op(ic->u.binop.op1, fp);
+            if(ic->kind == IR_ADD)
+                fprintf(fp, " + ");
+            if(ic->kind == IR_SUB)
+                fprintf(fp, " - ");
+            if(ic->kind == IR_MUL)
+                fprintf(fp, " * ");
+            if(ic->kind == IR_DIV)
+                fprintf(fp, " / ");
+            print_op(ic->u.binop.op2, fp);
+            break;
+        case IR_RETURN:
+            fprintf(fp, "RETURN  ");
+            print_op(ic->u.one.op, fp);
+            break;
+        case IR_LABEL:
+            fprintf(fp, "LABEL ");
+            print_op(ic->u.one.op, fp);
+            fprintf(fp, " :");
+            break;
+        case IR_GOTO:
+            fprintf(fp, "GOTO ");
+            print_op(ic->u.one.op, fp);
+            break;
+        case IR_IFGOTO:
+            fprintf(fp, "IF ");
+            print_op(ic->u.triop.t1, fp);
+            fprintf(fp, " ");
+            print_relop(ic->u.triop.relop, fp);
+            fprintf(fp, " ");
+            print_op(ic->u.triop.t2, fp);
+            fprintf(fp, " GOTO ");
+            print_op(ic->u.triop.label, fp);
+            break;
+        case IR_READ:
+            fprintf(fp, "READ ");
+            print_op(ic->u.one.op, fp);
+            break;
+        case IR_WRITE:
+            fprintf(fp, "WRITE ");
+            print_op(ic->u.one.op, fp);
+            break;
+        case IR_CALL:
+            print_op(ic->u.assign.left, fp);
+            fprintf(fp, " := CALL ");
+            print_op(ic->u.assign.right, fp);
+            break;
+        case IR_ARG:
+            fprintf(fp, "ARG ");
+            print_op(ic->u.one.op, fp);
+            break;
+        case IR_FUNCTION:
+            fprintf(fp, "FUNCTION ");
+            print_op(ic->u.one.op, fp);
+            fprintf(fp, " :");
+            break;
+        case IR_PARAM:
+            fprintf(fp, "PARAM ");
+            print_op(ic->u.one.op, fp);
+            break;
+        case IR_DEC:
+            fprintf(fp, "DEC ");
+            print_op(ic->u.dec.op, fp);
+            fprintf(fp, " %d", ic->u.dec.size);
+            break;
+        case IR_RIGHTAT:
+            print_op(ic->u.assign.left, fp);
+            fprintf(fp, " := &");
+            print_op(ic->u.assign.right, fp);
+            break;
+        case IR_LEFTSTAR:
+            fprintf(fp, "*");
+            print_op(ic->u.assign.left, fp);
+            fprintf(fp, " := ");
+            print_op(ic->u.assign.right, fp);
+            break;
+        case IR_RIGHTSTAR:
+            print_op(ic->u.assign.left, fp);
+            fprintf(fp, " := *");
+            print_op(ic->u.assign.right, fp);
+            break;
+        default: assert(0);
+    }
+    fprintf(fp, "\n");
+}
+
 void print_code(list_head *code, FILE *fp) {
     list_head *p;
     InterCode *ic;
     list_foreach(p, code) {
         ic = list_entry(p, InterCode, list);
-        switch(ic->kind) {
-            case IR_ASSIGN:
-                print_op(ic->u.assign.left, fp);
-                fprintf(fp, " := ");
-                print_op(ic->u.assign.right, fp);
-                break;
-            case IR_ADD:
-            case IR_SUB:
-            case IR_MUL:
-            case IR_DIV:
-                print_op(ic->u.binop.result, fp);
-                fprintf(fp, " := ");
-                print_op(ic->u.binop.op1, fp);
-                if(ic->kind == IR_ADD)
-                    fprintf(fp, " + ");
-                if(ic->kind == IR_SUB)
-                    fprintf(fp, " - ");
-                if(ic->kind == IR_MUL)
-                    fprintf(fp, " * ");
-                if(ic->kind == IR_DIV)
-                    fprintf(fp, " / ");
-                print_op(ic->u.binop.op2, fp);
-                break;
-            case IR_RETURN:
-                fprintf(fp, "RETURN  ");
-                print_op(ic->u.one.op, fp);
-                break;
-            case IR_LABEL:
-                fprintf(fp, "LABEL ");
-                print_op(ic->u.one.op, fp);
-                fprintf(fp, " :");
-                break;
-            case IR_GOTO:
-                fprintf(fp, "GOTO ");
-                print_op(ic->u.one.op, fp);
-                break;
-            case IR_IFGOTO:
-                fprintf(fp, "IF ");
-                print_op(ic->u.triop.t1, fp);
-                fprintf(fp, " ");
-                print_relop(ic->u.triop.relop, fp);
-                fprintf(fp, " ");
-                print_op(ic->u.triop.t2, fp);
-                fprintf(fp, " GOTO ");
-                print_op(ic->u.triop.label, fp);
-                break;
-            case IR_READ:
-                fprintf(fp, "READ ");
-                print_op(ic->u.one.op, fp);
-                break;
-            case IR_WRITE:
-                fprintf(fp, "WRITE ");
-                print_op(ic->u.one.op, fp);
-                break;
-            case IR_CALL:
-                print_op(ic->u.assign.left, fp);
-                fprintf(fp, " := CALL ");
-                print_op(ic->u.assign.right, fp);
-                break;
-            case IR_ARG:
-                fprintf(fp, "ARG ");
-                print_op(ic->u.one.op, fp);
-                break;
-            case IR_FUNCTION:
-                fprintf(fp, "FUNCTION ");
-                print_op(ic->u.one.op, fp);
-                fprintf(fp, " :");
-                break;
-            case IR_PARAM:
-                fprintf(fp, "PARAM ");
-                print_op(ic->u.one.op, fp);
-                break;
-            case IR_DEC:
-                fprintf(fp, "DEC ");
-                print_op(ic->u.dec.op, fp);
-                fprintf(fp, " %d", ic->u.dec.size);
-                break;
-            case IR_RIGHTAT:
-                print_op(ic->u.assign.left, fp);
-                fprintf(fp, " := &");
-                print_op(ic->u.assign.right, fp);
-                break;
-            case IR_LEFTSTAR:
-                fprintf(fp, "*");
-                print_op(ic->u.assign.left, fp);
-                fprintf(fp, " := ");
-                print_op(ic->u.assign.right, fp);
-                break;
-            case IR_RIGHTSTAR:
-                print_op(ic->u.assign.left, fp);
-                fprintf(fp, " := *");
-                print_op(ic->u.assign.right, fp);
-                break;
-            default: assert(0);
-        }
-        fprintf(fp, "\n");
+        print_ic(fp, ic);
     }
 }
 
 void print_op(Operand *op, FILE *fp) {
     if(!op) return;
-    static int v = 0, l = 0, t = 0;
     switch(op->kind) {
         case VARIABLE:
         case VARIADDR:
-            if(op->u.var_no > 0) op->u.var_no = --v;
-            fprintf(fp, "v%d", -op->u.var_no);
+            fprintf(fp, "v%d", op->u.var_no);
             break;
         case CONSTANT:
             fprintf(fp, "#%d", op->u.cons);
             break;
         case TEMPVAR:
-            if(op->u.var_no > 0) op->u.var_no = --t;
-            fprintf(fp, "t%d", -op->u.var_no);
+            fprintf(fp, "t%d", op->u.var_no);
             break;
         case LABEL:
-            if(op->u.label->no > 0) op->u.label->no = --l;
-            fprintf(fp, "label%d", -op->u.label->no);
+            fprintf(fp, "label%d", op->u.label->no);
             break;
         case FUNCTION:
             fprintf(fp, "%s", op->u.value);
@@ -263,9 +263,11 @@ Operand* new_op_var() {
 
 Operand* new_op_tvar() {
     Operand *tv = new(Operand);
+    tv->is_arg = false;
     tv->kind = TEMPVAR;
     tv->reg_ptr = NULL;
     tv->u.var_no = gen_no(TEMPVAR);
+    tv->offset2fp = -1;
     tv->next = NULL;
     return tv;
 }

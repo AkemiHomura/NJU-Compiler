@@ -14,8 +14,6 @@ symbol std_read = {.name = "read", .is_var = false, .line = 0},
        std_write = {.name = "write", .is_var = false, .line = 0};
 list_head sstack_root;
 
-static int offset2fp = 0;
-
 void pserror(int err, int line, char *errinfo,
         ...) {
     fprintf(stderr, "Error type %d at line %d: ", err,
@@ -473,12 +471,9 @@ static void gen_func_arg(tnode *vl, func_mes *fm) {
             vl = vl->last_son;
             pd = vl->son;
         }
-        int arg_offset2fp = 0;
         list_head *p;
         list_foreach_rev(p, &fm->argv_list) {
             args = list_entry(p, symbol, list);
-            args->op->offset2fp = arg_offset2fp;
-            arg_offset2fp += 4;
         }
     }
 }
@@ -532,10 +527,12 @@ void fun_dec(tnode *t, type_t *rett) {
             export_symbol(fs);
             fs->fmes->vis_tag = 1;
         }
+        Operand *op_func = new_op_func(fs->name);
         export_code(new(InterCode, IR_FUNCTION, .u.one.op =
-                    new_op_func(fs->name)));
+                    op_func));
         gen_func_arg(vl, fm);
         compst(t->brother, rett, fm);
+        fs->op = op_func;
     } else {
         if(!fs){
             fm = new_func(rett);
@@ -599,15 +596,14 @@ void dec(tnode *t, type_t *type, type_t *st) {
         else export_symbol(s);
 
         s->op = new_op_var();
-        s->op->offset2fp = offset2fp;
         if(type_array(s->vmes->type) || type_struct(s->vmes->type)) {
             Operand *op = new_op_tvar();
             export_code(new(InterCode, IR_DEC, .u.dec.op = op, .u.dec.size = s->vmes->type->tsize));
             export_code(new(InterCode, IR_RIGHTAT, .u.assign.left = s->op,
                         .u.assign.right = op));
             s->op->kind = VARIADDR;
-            offset2fp += s->vmes->type->tsize;
-        } else offset2fp += 4;
+            s->op->size = s->vmes->type->tsize;
+        }
 
         if(label_equal(t->last_son, Exp)) {
             type_t *et = expression(t->last_son);
@@ -656,7 +652,7 @@ void def_list(tnode *t, type_t *st) {
 }
 
 Label label_fall = {-1, NULL};
-Operand fall = {LABEL, .u.label = &label_fall, NULL};
+Operand fall = {LABEL, .u.label = &label_fall, .next = NULL};
 void stmt(tnode *t, type_t *rett) {
 /*  printf("%d %s\n", t->syntax_label, t->info); */
     assert(label_equal(t, Stmt));
@@ -888,9 +884,6 @@ void compst(tnode *t, type_t *rett, func_mes *fm) {
     push_sstack();
     if(fm) {
         export_func_arg(fm);
-        if(list_empty(&fm->argv_list))
-        offset2fp = 0;
-        else offset2fp = list_entry(fm->argv_list.next, symbol, list)->op->offset2fp + 4;
     }
     if(t->snum == 3) {
         if(label_equal(tnode_sec_son(t), DefList))

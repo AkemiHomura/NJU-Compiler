@@ -22,16 +22,6 @@ typedef enum mips_instruction_types {
 
 #define MIPS_REG_NUMS   32
 void init_mips(FILE *);
-void tick(register_descripter *);
-bool operand_has_reg(Operand *);
-bool reg_is_empty(register_descripter *);
-void get_reg(Operand *op);
-void gen_mips(list_head *ir);
-void __emit_code(FILE *fp, mips_ins_t, ...);
-#define emit_code(m, ...) { \
-    printf(#m); printf(" "); \
-    __emit_code(stdout, mips_##m, __VA_ARGS__) \
-    printf("\n"); \
-}
+void gen_mips(list_head *ir, FILE *fp);
 
 #endif

@@ -33,8 +33,9 @@ int main(int argc, char** argv) {
         print_tree(root);
 #endif
         main_parse(root);
-        print_code(&code, fp);
-        //init_mips(stdout);
+        //print_code(&code, stdout);
+        init_mips(fp);
+        gen_mips(&code, fp);
     }
     return 0;
 }

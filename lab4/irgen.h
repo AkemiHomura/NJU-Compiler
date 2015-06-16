@@ -39,8 +39,10 @@ struct Operand {
         int cons; // constant
         struct Operand* name; //vaddress, taddress
     } u;
+    bool is_arg;
     void *reg_ptr;
     int offset2fp;
+    int size;
     struct Operand* next;
 };
 typedef struct Operand Operand;
