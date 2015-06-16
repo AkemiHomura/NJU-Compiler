@@ -8,8 +8,8 @@ extern Operand fall;
 
 list_head code;
 
-Operand zero = {CONSTANT, .u.cons = 0, .next = NULL};
-Operand one = {CONSTANT, .u.cons = 1, .next = NULL};
+Operand zero = {.kind = CONSTANT, .u.cons = 0, .next = NULL};
+Operand one = {.kind = CONSTANT, .u.cons = 1, .next = NULL};
 
 void init_irgen() {
     list_init(&code);

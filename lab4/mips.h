@@ -24,4 +24,7 @@ typedef enum mips_instruction_types {
 void init_mips(FILE *);
 void gen_mips(list_head *ir, FILE *fp);
 
+void mips_pushall();
+void mips_popall();
+
 #endif

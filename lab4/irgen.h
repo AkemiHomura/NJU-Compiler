@@ -99,4 +99,6 @@ void divide_into_basic_blocks(list_head *code, basic_block *root);
 /* begin is one before true begin */
 void optimize_basic_block(basic_block *bc);
 
+extern Operand zero, one;
+
 #endif

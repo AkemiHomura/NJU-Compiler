@@ -5,13 +5,12 @@
 #include <stdarg.h>
 
 register_descripter r[MIPS_REG_NUMS];
-register_descripter *zero, *at, *v[2], *a[4], *t[10], *s[8], *k[2],
+register_descripter *_zero, *at, *v[2], *a[4], *t[10], *s[8], *k[2],
                     *gp, *sp, *_fp, *ra;
 
 FILE *mips_fp;
 #define emit_code(m, ...) { \
     __emit_code(mips_fp, mips_##m, __VA_ARGS__); \
-    tick(); \
 }
 
 static int func_stack;
@@ -24,7 +23,7 @@ static void init_regs()
         r[i].reg_no = i;
         r[i].op = NULL;
     }
-    zero = r;
+    _zero = r;
     at = r + 1;
     for(i = 0; i < 2; i++)
         v[i] = r + i + 2;
@@ -70,68 +69,6 @@ void init_mips(FILE *fp)
             " syscall\n"
             " move $v0, $s0\n"
             " jr $ra\n");
-}
-
-void tick()
-{
-    int i = 10;
-    for(; i < 26; i ++) if(r[i].op != NULL);
-        r[i].time_in_use ++;
-}
-
-inline bool operand_has_reg(Operand *op)
-{
-    return op->reg_ptr || true;
-}
-
-inline bool reg_is_empty(register_descripter *rd)
-{
-    return rd->op && true;
-}
-
-register_descripter* get_reg(Operand *op)
-{
-    if(op->reg_ptr) return op->reg_ptr;
-    if(op->kind == CONSTANT) {
-         emit_code(li, t[0], op->u.cons);
-         return t[0];
-    }
-    int i;
-    register_descripter *the_longest_not_used_reg = r + 10;
-    /* need to be modified */
-    for(i = 10; i < 26; i ++) {
-        if(r[i].op == NULL) {
-            the_longest_not_used_reg = r + i;
-            break;
-        }
-        if(r[i].time_in_use > the_longest_not_used_reg->time_in_use &&
-                !r[i].op->is_arg)
-            the_longest_not_used_reg = r + i;
-    }
-    /* load */
-    if(op->kind == VARIADDR) {
-        emit_code(addi, the_longest_not_used_reg, sp, func_stack - op->offset2fp);
-    }
-    else if(op->kind == VARIABLE || op->kind == TEMPVAR){
-        emit_code(lw, the_longest_not_used_reg, func_stack - op->offset2fp, sp);
-        the_longest_not_used_reg->op = op;
-        op->reg_ptr = the_longest_not_used_reg;
-    }
-
-    return the_longest_not_used_reg;
-}
-
-void store_all() {
-     int i = 10;
-     for(; i < 26; i ++) {
-         if(r[i].op && (r[i].op->kind == VARIABLE ||
-                     r[i].op->kind == TEMPVAR)) {
-            r[i].op->reg_ptr = NULL;
-            emit_code(sw, r + i, func_stack - r[i].op->offset2fp, sp);
-            r[i].op = NULL;
-            r[i].time_in_use = 0;
-         }
-     }
 }
 
 void print_reg(FILE *fp, register_descripter *rd)
@@ -274,32 +211,28 @@ void __emit_code(FILE *fp, mips_ins_t m, ...)
     }
     va_end(arg_ptr);
     fprintf(fp, "\n");
-    if(r1 != NULL && r1->op != NULL && (r1->op->kind == VARIABLE || r1->op->kind == TEMPVAR)) {
-        Operand *op = r1->op;
-        r1->op->reg_ptr = NULL;
-        r1->op = NULL;
-        r1->time_in_use = 0;
-        emit_code(sw, r1, func_stack - op->offset2fp, sp);
-    }
-
-    if(r2 != NULL && r2->op != NULL && (r2->op->kind == VARIABLE || r2->op->kind == TEMPVAR)) {
-        Operand *op = r2->op;
-        r2->op->reg_ptr = NULL;
-        r2->op = NULL;
-        r2->time_in_use = 0;
-        emit_code(sw, r2, func_stack - op->offset2fp, sp);
-    }
-
-    if(r3 != NULL && r3->op != NULL && (r3->op->kind == VARIABLE || r3->op->kind == TEMPVAR)) {
-        Operand *op = r3->op;
-        r3->op->reg_ptr = NULL;
-        r3->op = NULL;
-        r3->time_in_use = 0;
-        emit_code(sw, r3, func_stack - op->offset2fp, sp);
-    }
 }
 
 void print_ic(FILE*, InterCode *);
+
+void load_t(register_descripter *t, Operand *op)
+{
+    if(op->kind == CONSTANT) {
+        emit_code(li, t, op->u.cons);
+    } else if(op->kind == VARIABLE ||
+            op->kind == TEMPVAR) {
+        emit_code(lw, t, func_stack - op->offset2fp, sp);
+    } else if(op->kind == VARIADDR) {
+        emit_code(addi, t, sp, func_stack - op->offset2fp);
+    }
+}
+
+void store_t(register_descripter *t, Operand *op)
+{
+    assert(op->kind != VARIADDR && op->kind != LABEL &&
+            op->kind != FUNCTION);
+    emit_code(sw, t, func_stack - op->offset2fp, sp);
+}
 
 void gen_mips(list_head *ir, FILE *fp)
 {
@@ -307,6 +240,7 @@ void gen_mips(list_head *ir, FILE *fp)
     InterCode *ic;
     list_foreach(p, ir) {
         ic = list_entry(p, InterCode, list);
+        print_ic(stdout, ic);
         int func_stack;
         Operand *func;
         switch(ic->kind) {
@@ -320,13 +254,24 @@ void gen_mips(list_head *ir, FILE *fp)
             case IR_READ:
             case IR_WRITE:
             case IR_ARG:
-            case IR_PARAM:
                 if(ic->u.one.op->kind == VARIABLE ||
                         ic->u.one.op->kind == TEMPVAR) {
                     if(ic->u.one.op->offset2fp < 0) {
                         ic->u.one.op->offset2fp = func_stack + 4;
                         func_stack += 4;
                         func->offset2fp += 4;
+                    }
+                }
+                break;
+            case IR_PARAM:
+                {
+                    if(ic->u.one.op->kind == VARIABLE ||
+                            ic->u.one.op->kind == TEMPVAR) {
+                        if(ic->u.one.op->offset2fp < 0) {
+                            ic->u.one.op->offset2fp = func_stack + 4;
+                            func_stack += 4;
+                            func->offset2fp += 4;
+                        }
                     }
                 }
                 break;
@@ -397,60 +342,49 @@ void gen_mips(list_head *ir, FILE *fp)
     }
     list_foreach(p, ir) {
         ic = list_entry(p, InterCode, list);
-        print_ic(stdout, ic);
         switch(ic->kind) {
             case IR_LABEL:
                 fprintf(fp, "label%d:\n", ic->u.one.op->u.label->no);
                 break;
             case IR_ASSIGN:
                 // x := #k
+                load_t(t[0], ic->u.assign.left);
                 if(ic->u.assign.right->kind == CONSTANT) {
-                    emit_code(li, get_reg(ic->u.assign.left),
-                           ic->u.assign.right->u.cons);
+                    emit_code(li, t[0],
+                            ic->u.assign.right->u.cons);
                 }
                 // x := y
                 else {
-                    emit_code(move, get_reg(ic->u.assign.left),
-                            get_reg(ic->u.assign.right));
+                    load_t(t[1], ic->u.assign.right);
+                    emit_code(move, t[0], t[1]);
                 }
+                emit_code(sw, t[0], func_stack - ic->u.assign.left->offset2fp, sp);
                 break;
             case IR_ADD:
-                // x := y + #k
-                if(ic->u.binop.op2->kind == CONSTANT) {
-                    emit_code(addi, get_reg(ic->u.binop.result),
-                            get_reg(ic->u.binop.op1),
-                            ic->u.binop.op2->u.cons);
-                } else if(ic->u.binop.op1->kind == CONSTANT) {
-                    emit_code(addi, get_reg(ic->u.binop.result),
-                            get_reg(ic->u.binop.op2),
-                            ic->u.binop.op1->u.cons);
-                }
-                // x := y + z
-                else {
-                    emit_code(add, get_reg(ic->u.binop.result),
-                            get_reg(ic->u.binop.op1),
-                            get_reg(ic->u.binop.op2));
-                }
-                break;
             case IR_SUB:
-                {
-                    emit_code(sub, get_reg(ic->u.binop.result),
-                            get_reg(ic->u.binop.op1),
-                            get_reg(ic->u.binop.op2));
-                }
-                break;
             case IR_MUL:
-                emit_code(mul, get_reg(ic->u.binop.result),
-                        get_reg(ic->u.binop.op1),
-                        get_reg(ic->u.binop.op2));
-                break;
             case IR_DIV:
-                emit_code(div, get_reg(ic->u.binop.op1),
-                        get_reg(ic->u.binop.op2));
-                emit_code(mflo, get_reg(ic->u.binop.result));
+                load_t(t[0], ic->u.binop.result);
+                load_t(t[1], ic->u.binop.op1);
+                load_t(t[2], ic->u.binop.op2);
+                if(ic->kind == IR_ADD) {
+                    emit_code(add, t[0], t[1], t[2]);
+                }
+                else if(ic->kind == IR_SUB) {
+                    emit_code(sub, t[0], t[1], t[2]);
+                }
+                else if(ic->kind == IR_MUL) {
+                    emit_code(mul, t[0], t[1], t[2]);
+                }
+                else {
+                    emit_code(div, t[1], t[2]);
+                    emit_code(mflo, t[0]);
+                }
+                store_t(t[0], ic->u.binop.result);
                 break;
             case IR_RETURN:
-                emit_code(move, v[0], get_reg(ic->u.one.op));
+                load_t(t[0], ic->u.one.op);
+                emit_code(move, v[0], t[0]);
                 emit_code(jr, ra);
                 break;
             case IR_GOTO:
@@ -492,12 +426,15 @@ void gen_mips(list_head *ir, FILE *fp)
             case IR_READ:
                 mips_pushall();
                 emit_code(jal, "read");
-                emit_code(move, get_reg(ic->u.one.op), v[0]);
                 mips_popall();
+                load_t(t[0], ic->u.one.op);
+                emit_code(move, t[0], v[0]);
+                store_t(t[0], ic->u.one.op);
                 break;
             case IR_WRITE:
+                load_t(t[0], ic->u.one.op);
+                emit_code(move, a[0], t[0]);
                 mips_pushall();
-                emit_code(move, a[0], get_reg(ic->u.one.op));
                 emit_code(jal, "write");
                 mips_popall();
                 break;
@@ -508,24 +445,15 @@ void gen_mips(list_head *ir, FILE *fp)
                 /* need to be filled */
                 break;
             case IR_LEFTSTAR:
-                if(ic->u.assign.left->kind == VARIADDR) {
-                    emit_code(sw, get_reg(ic->u.assign.right),
-                            func_stack - ic->u.assign.left->offset2fp, sp);
-                }
-                else {
-                    emit_code(sw, get_reg(ic->u.assign.right), 0,
-                            get_reg(ic->u.assign.left));
-                }
+                load_t(t[0], ic->u.assign.right);
+                load_t(t[1], ic->u.assign.left);
+                emit_code(sw, t[0], 0, t[1]);
                 break;
             case IR_RIGHTSTAR:
-                if(ic->u.assign.right->kind == VARIADDR) {
-                    emit_code(lw, get_reg(ic->u.assign.left),
-                            func_stack - ic->u.assign.right->offset2fp, sp);
-                }
-                else {
-                    emit_code(lw, get_reg(ic->u.assign.left), 0,
-                            get_reg(ic->u.assign.right));
-                }
+                load_t(t[0], ic->u.assign.left);
+                load_t(t[1], ic->u.assign.right);
+                emit_code(lw, t[0], 0, t[1]);
+                store_t(t[0], ic->u.assign.left);
                 break;
             case IR_ARG:
                 /* self loop until function */
@@ -539,25 +467,34 @@ void gen_mips(list_head *ir, FILE *fp)
                     }
                     symbol *s = find_by_name_global(ir_call->u.assign.right->u.value);
                     int offset = 4;
-                    while(ic != ir_call) {
-                        emit_code(sw, get_reg(ic->u.one.op), -offset, _fp);
-                        ic->u.one.op->is_arg = false;
+                    Operand *arg = list_entry(q->prev, InterCode, list)->u.one.op;
+                    while(arg) {
+                        load_t(t[0], arg);
+                        emit_code(sw, t[0], -offset, _fp);
                         offset += 4;
-                        p = p->next;
-                        ic = list_entry(p, InterCode, list);
+                        arg = arg->next;
                     }
                     /* call */
                     emit_code(jal, ir_call->u.assign.right->u.value);
                     mips_popall();
-                    emit_code(move, get_reg(ir_call->u.assign.left), v[0]);
+                    load_t(t[0], ir_call->u.assign.left);
+                    emit_code(move, t[0], v[0]);
+                    store_t(t[0], ir_call->u.assign.left);
                     p = q;
                 }
+                break;
+            case IR_CALL:
+                mips_pushall();
+                emit_code(jal, ic->u.assign.right->u.value);
+                mips_popall();
+                load_t(t[0], ic->u.assign.left);
+                emit_code(move, t[0], v[0]);
+                store_t(t[0], ic->u.assign.left);
                 break;
             /* not to deal with */
             case IR_RIGHTAT:
             case IR_PARAM:
             case IR_DEC:
-            case IR_CALL:
                 break;
             default:
                 assert(0); // never reached;

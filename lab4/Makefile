@@ -1,12 +1,12 @@
 CC=gcc
-CFLAGS=-Werror -lfl -g -O2 -o
+CFLAGS=-Werror -lfl -g -o
 LEXC_AND_YACCC=$(shell find -name "lex.yy.c" -o -name "syntax.tab.*")
 YACC_DEBUG_OUT=$(shell find -name "syntax.output")
 RES=$(shell find -name "parser")
 INCLUDE=$(shell find -name "*.h")
 
 parser: lex.yy.c syntax.tab.c main.c tree.c ta.c irgen.c mips.c $(INCLUDE)
-	$(CC) main.c syntax.tab.c tree.c ta.c irgen.c mips.c -ly $(CFLAGS) parser
+	$(CC) main.c syntax.tab.c tree.c ta.c irgen.c mips.c -ly -O2 $(CFLAGS) parser
 
 debug: lex.yy.c syntax.tab.c main.c tree.c ta.c irgen.c mips.c $(INCLUDE)
 	$(CC) main.c syntax.tab.c tree.c ta.c irgen.c mips.c -ly $(CFLAGS) parser -D DEBUG
